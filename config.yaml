@@ -1,0 +1,25 @@
+bear:
+  callback_timeout: 30s
+  retry_attempts: 3
+  tags: []
+
+beeminder:
+  username: brennanbrown
+  goal_name: writing
+  # api_token can be set here, but .env is preferred
+  # api_token: your_token
+
+schedule:
+  morning_time: "20:47"
+  evening_time: "20:49"
+  timezone: "America/Edmonton"
+
+metadata:
+  max_note_titles: 5
+  max_tags: 8
+  truncate_length: 100
+
+app:
+  db_path: data/bearminder.db
+  debug: false
+  dry_run: false
