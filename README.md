@@ -29,6 +29,46 @@ Set environment variable (e.g., in `.env`):
 BEAR_DB_PATH=/Users/you/Library/Group Containers/9K33E3U3T4.net.shinyfrog.bear/Application Data/database.sqlite
 ```
 
+## Background mode (macOS launchd)
+
+Run BearMinder automatically in the background and at login using a per-user LaunchAgent.
+
+Scripts are provided under `scripts/` to install/uninstall:
+
+```
+# install (writes a LaunchAgent plist and starts it)
+./scripts/install_launchd.sh
+
+# uninstall (stops the agent and removes the plist)
+./scripts/uninstall_launchd.sh
+```
+
+What it does:
+
+- Installs `~/Library/LaunchAgents/com.brennan.bearminder.plist`.
+- Runs `python -m bearminder.main schedule` in your repo directory at login and keeps it alive.
+- Prefers the repo virtualenv Python at `.venv/bin/python`, otherwise falls back to `python3`/`python` on your PATH.
+- Writes logs to `data/launchd.out.log` and `data/launchd.err.log`.
+
+Notes:
+
+- Configure `.env` and `config.yaml` before installing so the scheduler has the right credentials and settings.
+- The scheduler posts at times configured in `config.yaml` under `schedule.morning_time` and `schedule.evening_time` (local timezone in `schedule.timezone`).
+- To check status, see `data/status.json` after syncs complete. The GUI can read this file.
+- To run in preview mode (no Beeminder posts), set `BEAR_MINDER_DRY_RUN=true` in your `.env`.
+
+## macOS menu bar (tray) icon
+
+When the GUI app is running, a menu bar icon is available with quick actions:
+
+- Open BearMinder (shows the main window)
+- Sync now (runs a quick sync of the last hour)
+- Open config.yaml
+- Open data folder
+- Quit
+
+The tray is implemented in `gui/src-tauri/src/lib.rs` using Tauri v2's tray API.
+
 Notes:
 
 - The DB is opened in read-only mode via SQLite URI; no modifications are made.

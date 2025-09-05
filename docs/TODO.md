@@ -48,7 +48,8 @@ This file tracks what's done and what's next for BearMinder. See `docs/spec-shee
 - [x] Controls: Run now, Recount last hour, Toggle dry-run, Open config.yaml, Open data folder
 - [x] Onboarding hero with basic instructions and CTA (dismissible)
 - [x] Beeminder credentials form saved to `.env` via Tauri (username, goal, token)
-- [ ] Background: launch scheduler and show live status
+- [x] Background: launch scheduler via macOS launchd (install/uninstall scripts, logs, README docs)
+- [ ] GUI: show live background status and control (service state, last run)
 - [ ] Packaging for macOS (codesign optional for dev)
 
 ## Detailed Task Checklist
@@ -70,6 +71,7 @@ This file tracks what's done and what's next for BearMinder. See `docs/spec-shee
 - [x] File-based status (`data/status.json`) and GUI `read_status` Tauri command
 - [x] Loading spinners on actions; disabled + aria-busy states
 - [x] Warning banner when Bear DB not found, with buttons to open folder and `.env`
+- [x] Background install/uninstall scripts (launchd) and README instructions
 - [ ] Wizard screens and validation
 - [ ] Settings editor (loads/saves `config.yaml`)
 - [x] Basic theming, primary button, gradient hero; constrained form width
