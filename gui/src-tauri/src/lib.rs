@@ -3,6 +3,9 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
+use tauri::Manager;
+use tauri::menu::{MenuBuilder, MenuItemBuilder};
+use tauri::tray::TrayIconBuilder;
 
 #[tauri::command]
 fn greet(name: &str) -> String {
@@ -211,9 +214,15 @@ fn run_sync(args: SyncArgs) -> Result<String, String> {
         .ok_or_else(|| "Failed to resolve repository root".to_string())?
         .to_path_buf();
 
-    // Python interpreter inside the repo's virtualenv
-    let python_path = repo_root.join(".venv").join("bin").join("python");
-    let python = if python_path.exists() { python_path } else { PathBuf::from("python") };
+    // Python interpreter resolution: prefer repo .venv, then python3, then python
+    let py_venv = repo_root.join(".venv").join("bin").join("python");
+    let python = if py_venv.exists() {
+        py_venv
+    } else if which::which("python3").is_ok() {
+        PathBuf::from("python3")
+    } else {
+        PathBuf::from("python")
+    };
 
     let mut cmd = Command::new(python);
     cmd.current_dir(&repo_root)
@@ -260,6 +269,61 @@ pub fn run() {
             get_env,
             set_env
         ])
+        .setup(|app| {
+            // Build tray menu
+            let menu = MenuBuilder::new(app)
+                .item(&MenuItemBuilder::new("Open BearMinder").id("open").build(app).unwrap())
+                .item(&MenuItemBuilder::new("Sync now").id("sync_now").build(app).unwrap())
+                .separator()
+                .item(&MenuItemBuilder::new("Open config.yaml").id("open_config").build(app).unwrap())
+                .item(&MenuItemBuilder::new("Open data folder").id("open_data").build(app).unwrap())
+                .separator()
+                .item(&MenuItemBuilder::new("Quit").id("quit").build(app).unwrap())
+                .build()
+                .unwrap();
+
+            TrayIconBuilder::new()
+                .menu(&menu)
+                .on_menu_event(|app, event| {
+                    match event.id.0.as_str() {
+                        "open" => {
+                            if let Some(w) = app.get_webview_window("main") {
+                                let _ = w.show();
+                                let _ = w.set_focus();
+                            }
+                        }
+                        "sync_now" => {
+                            // Fire a quick sync with defaults: last hour, respect dry-run from env default false
+                            let _ = std::thread::spawn({
+                                let handle = app.app_handle().clone();
+                                move || {
+                                    // Run with since_hours=1, ignore_last_sync=false, dry_run=false
+                                    let _ = run_sync(SyncArgs { since_hours: 1, ignore_last_sync: false, dry_run: false });
+                                    // Optionally emit an event to frontend in future
+                                    let _ = handle.emit_all("sync-finished", ());
+                                }
+                            });
+                        }
+                        "open_config" => {
+                            if let Ok(root) = repo_root() {
+                                let _ = Command::new("open").arg(root.join("config.yaml")).spawn();
+                            }
+                        }
+                        "open_data" => {
+                            if let Ok(root) = repo_root() {
+                                let _ = Command::new("open").arg(root.join("data")).spawn();
+                            }
+                        }
+                        "quit" => {
+                            app.exit(0);
+                        }
+                        _ => {}
+                    }
+                })
+                .build(app)?;
+
+            Ok(())
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
