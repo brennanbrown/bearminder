@@ -31,11 +31,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let username = UserDefaults.standard.string(forKey: "beeminder.username") ?? ""
         let goal = UserDefaults.standard.string(forKey: "beeminder.goal") ?? ""
         let keychain = KeychainStore()
+        let combined = try? keychain.getCombinedTokens()
         beeminder = BeeminderClient(username: username, goal: goal) {
-            (try? keychain.getPassword(account: "token", service: "beeminder")) ?? ""
+            if let c = combined, !c.beeminder.isEmpty { return c.beeminder }
+            return (try? keychain.getPassword(account: "token", service: "beeminder")) ?? ""
         }
         bear = BearClient {
-            (try? keychain.getPassword(account: "token", service: "bear")) ?? ""
+            if let c = combined, !c.bear.isEmpty { return c.bear }
+            return (try? keychain.getPassword(account: "token", service: "bear")) ?? ""
         }
         store = CoreDataPersistence(storeURL: CoreDataPersistence.defaultStoreURL())
         let settings = Settings(beeminderUsername: username, beeminderGoal: goal)

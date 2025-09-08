@@ -6,6 +6,45 @@ public enum KeychainError: Error {
     case unhandled(OSStatus)
 }
 
+// MARK: - Combined tokens (single item) to minimize Keychain prompts
+public struct CombinedTokens: Codable { public let beeminder: String; public let bear: String }
+
+public extension KeychainStore {
+    private var combinedService: String { "bearminder" }
+    private var combinedAccount: String { "tokens" }
+
+    func setCombinedTokens(beeminder: String, bear: String) throws {
+        let payload = CombinedTokens(beeminder: beeminder, bear: bear)
+        let data = try JSONEncoder().encode(payload)
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrAccount as String: combinedAccount,
+            kSecAttrService as String: combinedService,
+            kSecValueData as String: data,
+            kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlock
+        ]
+        SecItemDelete(query as CFDictionary)
+        let status = SecItemAdd(query as CFDictionary, nil)
+        guard status == errSecSuccess else { throw KeychainError.unhandled(status) }
+    }
+
+    func getCombinedTokens() throws -> CombinedTokens {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrAccount as String: combinedAccount,
+            kSecAttrService as String: combinedService,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ]
+        var item: CFTypeRef?
+        let status = SecItemCopyMatching(query as CFDictionary, &item)
+        guard status != errSecItemNotFound else { throw KeychainError.notFound }
+        guard status == errSecSuccess, let data = item as? Data else { throw KeychainError.unexpectedData }
+        guard let decoded = try? JSONDecoder().decode(CombinedTokens.self, from: data) else { throw KeychainError.unexpectedData }
+        return decoded
+    }
+}
+
 public protocol SecureStoreType {
     func setPassword(_ password: String, account: String, service: String) throws
     func getPassword(account: String, service: String) throws -> String

@@ -66,7 +66,8 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     private func buttonsRow() -> NSView {
         let save = NSButton(title: "Save", target: self, action: #selector(onSave))
         let test = NSButton(title: "Test", target: self, action: #selector(onTest))
-        let stack = NSStackView(views: [save, test])
+        let combine = NSButton(title: "Combine Tokens", target: self, action: #selector(onCombineTokens))
+        let stack = NSStackView(views: [save, test, combine])
         stack.orientation = .horizontal
         stack.alignment = .trailing
         stack.spacing = 8
@@ -117,18 +118,15 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         d.set(startAtLogin, forKey: "startAtLogin")
         d.synchronize()
 
-        // Save Beeminder token to Keychain if provided
+        // Save tokens to Keychain
         let bm = beeminderTokenField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !bm.isEmpty {
-            let keychain = KeychainStore()
-            try? keychain.setPassword(bm, account: "token", service: "beeminder")
-        }
-
-        // Save Bear token to Keychain if provided
         let token = bearTokenField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !token.isEmpty {
-            let keychain = KeychainStore()
-            try? keychain.setPassword(token, account: "token", service: "bear")
+        let keychain = KeychainStore()
+        if !bm.isEmpty { try? keychain.setPassword(bm, account: "token", service: "beeminder") }
+        if !token.isEmpty { try? keychain.setPassword(token, account: "token", service: "bear") }
+        // Also write combined tokens if both are present (reduces prompts)
+        if !bm.isEmpty, !token.isEmpty {
+            try? keychain.setCombinedTokens(beeminder: bm, bear: token)
         }
         // Notify app to apply settings immediately
         let tags: [String]? = tagsRaw.isEmpty ? nil : tagsRaw.split{ $0 == "," || $0 == " " }.map{ String($0).trimmingCharacters(in: .whitespaces) }.filter{ !$0.isEmpty }
