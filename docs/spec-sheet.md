@@ -3,7 +3,7 @@
 # Bear to Beeminder Word Count Integration - Technical Specification
 
 ## Overview
-Automated system to track daily word count from Bear notes app and sync to Beeminder goal with detailed metadata, running twice daily.
+Automated system to track daily word count from Bear notes app and sync to Beeminder goal with detailed metadata, running hourly in the background, with an on-demand "Sync now" action from the menubar.
 
 ## User Experience - How Someone Would Actually Use This
 
@@ -11,7 +11,259 @@ Automated system to track daily word count from Bear notes app and sync to Beemi
 1. **Bear Setup:**
    - Install Bear app on Mac/iOS
    - Generate API token: macOS: Help → Advanced → API Token → Copy Token
-   - Start writing notes with consistent tagging (optional but recommended)
+   - Start writing notes# Bear to Beeminder Word Count Tracker - Menu Bar App Specification
+
+## Overview
+Lightweight macOS menu bar application that silently tracks daily word count from Bear notes and syncs to Beeminder automatically. Runs invisibly in the background with minimal system resources.
+
+## User Experience - Effortless Word Tracking
+
+### Installation & Setup (One-time, 2 minutes)
+1. **Download and launch** the app (single .app file)
+2. **Menu bar icon appears** - 🐻 bear emoji in system menu bar
+3. **Click icon → "Settings"** to configure:
+   - Bear API token (copied from Bear app settings)
+   - Beeminder username and auth token
+   - Goal name (e.g., "writing")
+   - Which tags to track (optional - defaults to all notes)
+4. **Done** - app disappears into background, starts at login automatically
+
+### Daily Experience (Zero friction)
+1. **Write in Bear normally** - no workflow changes whatsoever
+2. **Menu bar shows sync status** - click 🐻 icon to see:
+   ```
+   Today: 423 words written
+   Last sync: 2 minutes ago ✅
+   Goal status: 127 words ahead
+   
+   [Sync Now] [Settings]
+   ```
+3. **Automatic syncing every hour** + on-demand via "Sync Now"
+4. **Rich data appears in Beeminder** with writing context and metadata
+
+### Menu Bar Interface
+**Default state:** 🐻 (bear emoji, no text to save space)
+**Click behavior:** Show popup with current status and controls
+**Status indicator:** Small colored dot on icon (green=synced, yellow=syncing, red=error)
+
+## Technical Architecture
+
+### macOS Menu Bar App (Swift/Objective-C)
+- **NSStatusItem** - menu bar presence
+- **Launch daemon** - start at login automatically  
+- **Background timer** - hourly sync schedule
+- **Minimal memory footprint** - < 10MB RAM usage
+- **Low CPU usage** - only active during sync operations
+- **System notifications** - discrete alerts for sync errors only
+
+### Bear Integration (x-callback-url)
+**Authentication:**
+- Store Bear API token in macOS Keychain
+- Token must be generated per-platform (macOS specific)
+
+**Data Collection Strategy:**
+```swift
+// Hourly sync process:
+1. Query Bear for today's modified notes
+2. Calculate word count delta since last sync
+3. Store note metadata (titles, tags, timestamps)
+4. Send cumulative daily count to Beeminder
+```
+
+**Key API Calls:**
+- `bear://x-callback-url/today?token={token}` - Today's notes
+- `bear://x-callback-url/search?term={term}&token={token}` - Filtered notes by tag
+- `bear://x-callback-url/open-note?id={id}&token={token}` - Individual note content for word counting
+
+### Beeminder Integration (REST API)
+**Authentication:** Store auth token in macOS Keychain
+
+**Sync Strategy:**
+```
+POST https://www.beeminder.com/api/v1/users/{user}/goals/{goal}/datapoints.json
+- value: Total daily word count (cumulative)
+- comment: Rich metadata about today's writing
+- requestid: Date-based unique ID for idempotency
+- timestamp: Current time
+```
+
+### Data Management
+**Local Storage (Core Data/SQLite):**
+```sql
+CREATE TABLE daily_snapshots (
+    date TEXT PRIMARY KEY,           -- YYYY-MM-DD
+    total_words INTEGER,             -- Cumulative daily count
+    notes_modified INTEGER,          -- Number of notes touched
+    top_tags TEXT,                   -- JSON array of most used tags
+    sync_status TEXT,                -- 'pending', 'synced', 'error'
+    last_updated TIMESTAMP
+);
+
+CREATE TABLE note_tracking (
+    note_id TEXT,
+    date TEXT,
+    previous_word_count INTEGER,
+    current_word_count INTEGER,
+    PRIMARY KEY (note_id, date)
+);
+```
+
+## Menu Bar Popup Interface
+
+### Status View (Default)
+```
+┌─────────────────────────────────┐
+│ 🐻 Bear → Beeminder Word Tracker│
+├─────────────────────────────────┤
+│ Today: 847 words written        │
+│ Goal: 250 words/day             │
+│ Status: 597 words ahead! 🎉     │
+│                                 │
+│ Last sync: 3 minutes ago ✅     │
+│ Next sync: in 57 minutes        │
+│                                 │
+│ Recent notes:                   │
+│ • "Blog post draft" (423 words) │
+│ • "Daily journal" (312 words)   │
+│ • "Meeting notes" (112 words)   │
+│                                 │
+│ [🔄 Sync Now] [⚙️ Settings]     │
+│ [📊 Open Beeminder] [❌ Quit]   │
+└─────────────────────────────────┘
+```
+
+### Settings View (Click "Settings")
+```
+┌─────────────────────────────────┐
+│ ⚙️ Bear → Beeminder Settings     │
+├─────────────────────────────────┤
+│ Bear API Token:                 │
+│ [abc123-def456-ghi789]          │
+│                                 │
+│ Beeminder Username:             │
+│ [brennanbrown]                  │
+│                                 │
+│ Beeminder Auth Token:           │
+│ [xyz789-uvw456-rst123]          │
+│                                 │
+│ Goal Name:                      │
+│ [writing]                       │
+│                                 │
+│ Track only these tags:          │
+│ [#writing #blog #journal]       │
+│ ☑️ Track all notes (ignore tags)│
+│                                 │
+│ Sync frequency:                 │
+│ ◉ Every hour ◯ Every 30 min     │
+│ ◯ Every 2 hours                 │
+│                                 │
+│ [💾 Save] [🔙 Back] [🧪 Test]   │
+└─────────────────────────────────┘
+```
+
+## Background Operations
+
+### Sync Process (Every Hour + On-Demand)
+1. **Check Bear connectivity** - validate API token works
+2. **Query today's notes** - get all modified notes for current date
+3. **Calculate word deltas** - compare with stored previous counts
+4. **Update local database** - store new counts and metadata
+5. **Send to Beeminder** - POST daily cumulative total with rich comment
+6. **Update menu bar** - refresh status indicator
+7. **Handle errors silently** - log issues, show notification only if persistent
+
+### System Resource Management
+- **Timer-based sync** - `NSTimer` with 1 hour intervals
+- **Efficient queries** - only fetch modified notes since last check
+- **Minimal memory usage** - release objects immediately after processing
+- **Background processing** - use `NSOperationQueue` for API calls
+- **Graceful degradation** - continue working if either API is temporarily unavailable
+
+### Error Handling
+- **Bear unreachable:** Cache locally, retry next sync
+- **Beeminder API down:** Queue data points, send when available
+- **Authentication fails:** Show notification, open settings automatically
+- **Goal doesn't exist:** Offer to create goal or update settings
+- **Network issues:** Exponential backoff retry strategy
+
+## Beeminder Data Point Format
+
+### Rich Comment Template
+```
+📝 {total_words} words across {note_count} notes
+
+✍️ Top sessions:
+• "{highest_word_note}" ({word_count} words)
+• "{second_note}" ({word_count} words)
+
+🏷️ Tags: #{tag1} #{tag2} #{tag3}
+
+📊 Progress: {percentage}% of daily goal
+⏰ Most active: {peak_writing_time}
+
+🐻 via Bear → Beeminder
+```
+
+### Example Data Point
+```json
+{
+  "value": 847,
+  "comment": "📝 847 words across 4 notes\n\n✍️ Top sessions:\n• \"Blog post about productivity\" (423 words)\n• \"Daily reflection journal\" (312 words)\n\n🏷️ Tags: #writing #blog #productivity #reflection\n\n📊 Progress: 339% of daily goal\n⏰ Most active: 2:00-4:00 PM\n\n🐻 via Bear → Beeminder",
+  "requestid": "bear-sync-2025-09-07",
+  "timestamp": 1725724800
+}
+```
+
+## Development Stack
+
+### Primary Technologies
+- **Language:** Swift 5.0+ (native macOS performance)
+- **Framework:** Cocoa/AppKit for menu bar integration
+- **Storage:** Core Data for local persistence
+- **Security:** Keychain Services for credential storage
+- **Networking:** URLSession for REST API calls
+
+### Build Configuration
+- **Deployment target:** macOS 12.0+ (wide compatibility)
+- **Architecture:** Universal Binary (Intel + Apple Silicon)
+- **Code signing:** Developer ID for distribution outside App Store
+- **Sandboxing:** Minimal permissions (network access only)
+
+### Distribution
+- **Direct download:** Single .app file from website
+- **Auto-updater:** Sparkle framework for seamless updates
+- **File size:** < 5MB total application size
+- **Installation:** Drag-and-drop to Applications folder
+
+## Privacy & Security
+
+### Data Handling
+- **Local processing only** - never store note content remotely
+- **Encrypted credentials** - all API tokens in macOS Keychain
+- **Minimal data collection** - only word counts and metadata
+- **No analytics** - completely private operation
+- **User control** - easy to disable/uninstall completely
+
+### API Security
+- **HTTPS only** - all external communications encrypted
+- **Token rotation** - support for updating credentials easily
+- **Graceful failures** - no sensitive data in logs or error messages
+
+## Success Metrics
+
+### Performance Targets
+- **Memory usage:** < 10MB baseline, < 15MB during sync
+- **CPU usage:** < 1% average, < 5% during active sync
+- **Network usage:** < 100KB per sync operation
+- **Startup time:** < 2 seconds to menu bar appearance
+- **Sync reliability:** > 99.5% successful sync rate
+
+### User Experience Goals
+- **Setup time:** < 3 minutes from download to first sync
+- **Daily interaction:** Zero required user actions
+- **Status clarity:** Always know sync state at a glance
+- **Error recovery:** Automatic resolution of 95%+ issues
+- **Invisibility:** Works perfectly without user awareness with consistent tagging (optional but recommended)
 
 2. **Beeminder Setup:**
    - Create Beeminder account and "writing" goal (custom goal type)
@@ -65,7 +317,7 @@ Top Note: "Blog post draft" (423 words)
 ### Data Collection
 - **Source**: Bear app notes via x-callback-url API
 - **Metric**: Total word count written per day (cumulative)
-- **Frequency**: 2 updates per day (morning recap + evening final count)
+- **Frequency**: Hourly background sync + on-demand via "Sync now" from the menubar
 - **Data Point Value**: Daily word count delta (new words written since last update)
 
 ### Metadata Collection
@@ -115,8 +367,8 @@ Daily Word Count Calculation:
 ## Scheduling & Execution
 
 ### Update Schedule
-- **Morning Update (9:00 AM)**: Previous day final tally
-- **Evening Update (9:00 PM)**: Current day progress
+- **Hourly background sync**: Regular collection and posting without user interaction
+- **On-demand sync**: User-initiated via menubar "Sync now" action
 
 ### State Management
 **Local Storage Requirements:**
@@ -245,132 +497,17 @@ CREATE TABLE sync_log (
 - Minimal manual intervention required
 - Clear error messages when issues occur
 
-## Graphical User Interface (GUI) Application
-
-### Desktop Application (Electron/Native)
-**Main Dashboard:**
-- **Connection Status Panel**: Green/red indicators for Bear and Beeminder API connections
-- **Today's Progress**: Real-time word count with visual progress bar toward daily goal
-- **Quick Stats**: Current streak, weekly average, monthly total
-- **Recent Activity Feed**: Last 5 sync events with timestamps and word counts
-
-**Setup Wizard:**
-- Step 1: Welcome screen explaining the integration
-- Step 2: Bear API token input with "Test Connection" button
-- Step 3: Beeminder credentials with goal selection dropdown
-- Step 4: Preferences (sync times, tag filters, notification settings)
-- Step 5: Confirmation screen with test sync option
-
-**Settings Panel:**
-- **Sync Schedule**: Custom time picker for morning/evening syncs
-- **Tag Filtering**: Checkbox list of all Bear tags, ability to include/exclude specific tags
-- **Notification Preferences**: Desktop alerts for sync events, writing reminders
-- **Data Export**: Button to export historical sync data as CSV
-- **Advanced Options**: Requestid format, retry settings, debug mode
-
-**Live Monitoring:**
-- **Writing Session Tracker**: Real-time word count as user types in Bear (if technically feasible)
-- **Daily Timeline**: Visual timeline showing when writing occurred throughout the day
-- **Goal Visualization**: Mini Beeminder graph embedded in the app
-- **Tag Cloud**: Visual representation of most-used writing tags
-
-### Mobile Companion App (iOS)
-**Since Bear has strong iOS presence:**
-- **Widget Support**: iOS widget showing today's word count and streak
-- **Quick Sync Button**: Manual sync trigger for immediate gratification
-- **Push Notifications**: Gentle reminders when behind on writing goals
-- **Stats Sharing**: Share writing achievements to social media
-
-### Web Dashboard (Optional)
-**For users who prefer browser access:**
-- **Login via Beeminder OAuth**: Secure authentication using existing Beeminder account
-- **Historical Analytics**: Interactive charts showing writing patterns over time
-- **Tag Analysis**: Breakdown of writing by category/topic
-- **Export Tools**: Download data in multiple formats (CSV, JSON, PDF report)
-
-### GUI Technical Architecture
-
-**Frontend Framework Options:**
-- **Electron + React**: Cross-platform desktop app with web technologies
-- **Swift (macOS) / SwiftUI**: Native Mac app for better system integration
-- **Tauri + Rust**: Lightweight alternative to Electron with better performance
-
-**Key GUI Components:**
-```
-MainWindow/
-├── StatusBar (connection indicators)
-├── Dashboard (today's progress)
-├── SyncLog (recent activity)
-├── Settings (configuration panel)
-└── About (version info, help links)
-
-SetupWizard/
-├── Welcome
-├── BearConnection
-├── BeeminderConnection  
-├── Preferences
-└── Confirmation
-```
-
-**Data Binding:**
-- Real-time updates from background sync service
-- Local SQLite database for GUI state persistence
-- WebSocket or file watching for live Bear data updates
-
-### User Experience Enhancements
-
-**Visual Feedback:**
-- **Progress Animations**: Smooth transitions when word counts update
-- **Success Celebrations**: Confetti animation when daily goal reached
-- **Streak Visualizations**: Fire emoji chains for consecutive days
-- **Writing Heat Map**: GitHub-style contribution graph for writing activity
-
-**Accessibility:**
-- **Keyboard Shortcuts**: Quick access to all major functions
-- **Screen Reader Support**: Proper ARIA labels and semantic HTML
-- **High Contrast Mode**: Dark/light theme support
-- **Font Scaling**: Adjustable text size for readability
-
-**Error Handling UI:**
-- **Connection Issues**: Clear error messages with troubleshooting steps
-- **API Rate Limits**: Progress bars showing wait times
-- **Sync Conflicts**: User-friendly resolution dialogs
-- **Backup/Recovery**: One-click data backup and restore options
-
-### Installation & Distribution
-
-**Package Distribution:**
-- **macOS**: DMG installer with proper code signing
-- **Windows**: NSIS installer with automatic updates
-- **Linux**: AppImage for universal compatibility
-- **iOS**: TestFlight beta program, eventual App Store submission
-
-**Auto-Update System:**
-- Background update checking
-- User notification for available updates
-- Seamless update installation with data migration
-
-**Getting Started Flow:**
-1. Download installer from project website
-2. Run setup wizard (5 minutes max)
-3. Test sync with sample data
-4. Start writing in Bear as normal
-5. Watch data flow into Beeminder automatically
-
-This GUI approach transforms the integration from a "technical tool" into a **delightful writing productivity app** that happens to use Bear and Beeminder as backends.
-
 ## Future Enhancements
 
 ### Phase 2 Features
-- Integration with other writing apps (Obsidian, Notion, Google Docs) as fallbacks
-- Writing streak tracking and celebrations with social sharing
-- Goal adjustment recommendations based on writing patterns
-- Mobile notifications for writing reminders and streak maintenance
-- Collaborative features for writing groups/accountability partners
+- Web dashboard for historical data visualization
+- Writing streak tracking and celebrations
+- Goal adjustment based on writing patterns
+- Integration with other writing apps as fallbacks
+- Mobile notifications for writing reminders
 
 ### Advanced Analytics
-- Writing velocity trends with predictive modeling
-- Tag-based productivity insights and topic recommendations
-- Optimal writing time identification with calendar integration
-- Progress tracking toward larger writing projects (books, thesis, etc.)
-- Word complexity analysis and readability scoring
+- Writing velocity trends
+- Tag-based productivity insights
+- Optimal writing time identification  
+- Progress toward larger writing projects
