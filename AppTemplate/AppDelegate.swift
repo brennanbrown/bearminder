@@ -28,11 +28,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Seed credentials from local/credentials.json (gitignored) on first launch if available
         LocalConfigLoader.seedIfNeeded()
 
+        // Ask for notification permission upfront (non-blocking)
+        if #available(macOS 10.14, *) {
+            UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
+        }
+
         // Initialize core
         let username = UserDefaults.standard.string(forKey: "beeminder.username") ?? ""
         let goal = UserDefaults.standard.string(forKey: "beeminder.goal") ?? ""
         let keychain = KeychainStore()
-        let combined = try? keychain.getCombinedTokens()
+        var combined = try? keychain.getCombinedTokens()
         beeminder = BeeminderClient(username: username, goal: goal) {
             if let c = combined, !c.beeminder.isEmpty { return c.beeminder }
             return (try? keychain.getPassword(account: "token", service: "beeminder")) ?? ""
@@ -40,6 +45,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         bear = BearClient {
             if let c = combined, !c.bear.isEmpty { return c.bear }
             return (try? keychain.getPassword(account: "token", service: "bear")) ?? ""
+        }
+        // Migrate to combined tokens if missing but individual items exist
+        if combined == nil {
+            if let bm = try? keychain.getPassword(account: "token", service: "beeminder"),
+               let br = try? keychain.getPassword(account: "token", service: "bear"),
+               !bm.isEmpty, !br.isEmpty {
+                try? keychain.setCombinedTokens(beeminder: bm, bear: br)
+                combined = try? keychain.getCombinedTokens()
+            }
         }
         store = CoreDataPersistence(storeURL: CoreDataPersistence.defaultStoreURL())
         let settings = Settings(beeminderUsername: username, beeminderGoal: goal)
@@ -59,6 +73,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 if let url = URL(string: "https://www.beeminder.com/") { NSWorkspace.shared.open(url) }
             case .openSettings:
                 self?.showSettings()
+            case .toggleStartAtLogin(let on):
+                self?.applyStartAtLogin(on)
             case .quit:
                 NSApp.terminate(nil)
             }
@@ -83,6 +99,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.applyStartAtLogin(startAtLogin)
             LOG(.info, "Applied settings: minutes=\(minutes) tags=\(tags ?? []) startAtLogin=\(startAtLogin)")
         }
+
+        // Apply Start at Login based on saved preference
+        let startAtLogin = UserDefaults.standard.bool(forKey: "startAtLogin")
+        applyStartAtLogin(startAtLogin)
     }
 
     private func showSettings() {
@@ -210,7 +230,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if #available(macOS 10.14, *) {
             UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { granted, _ in
                 guard granted else { return }
-                let content = UNNotificationContent()
                 let mutable = UNMutableNotificationContent()
                 mutable.title = title
                 mutable.body = body

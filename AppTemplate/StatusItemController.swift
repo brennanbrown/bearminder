@@ -7,6 +7,7 @@ final class StatusItemController {
         case syncNow
         case openSettings
         case openBeeminder
+        case toggleStartAtLogin(Bool)
         case quit
     }
 
@@ -88,6 +89,12 @@ final class StatusItemController {
         menu.addItem(menuItem(title: "🔄 Sync Now", action: #selector(onSyncNow)))
         menu.addItem(menuItem(title: "⚙️ Settings", action: #selector(onOpenSettings)))
         menu.addItem(menuItem(title: "📊 Open Beeminder", action: #selector(onOpenBeeminder)))
+        // Start at Login toggle
+        let enabled = UserDefaults.standard.bool(forKey: "startAtLogin")
+        let loginItem = NSMenuItem(title: "Start at Login", action: #selector(onToggleStartAtLogin), keyEquivalent: "")
+        loginItem.state = enabled ? .on : .off
+        loginItem.target = self
+        menu.addItem(loginItem)
 
         menu.addItem(NSMenuItem.separator())
         menu.addItem(menuItem(title: "❌ Quit", action: #selector(onQuit)))
@@ -103,6 +110,13 @@ final class StatusItemController {
     @objc private func onOpenSettings() { handler(.openSettings) }
     @objc private func onOpenBeeminder() { handler(.openBeeminder) }
     @objc private func onQuit() { handler(.quit) }
+
+    @objc private func onToggleStartAtLogin() {
+        let current = UserDefaults.standard.bool(forKey: "startAtLogin")
+        let next = !current
+        UserDefaults.standard.set(next, forKey: "startAtLogin")
+        handler(.toggleStartAtLogin(next))
+    }
 
     private func titleForStatus() -> String {
         let dot: String
