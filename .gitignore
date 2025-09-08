@@ -1,24 +1,13 @@
-# Python
-__pycache__/
-*.py[cod]
-*.pyo
-*.pyd
-*.so
-.venv/
-venv/
-.env
+# Build artifacts
+.build/
+build/
+.swiftpm/
 
-# macOS
-.DS_Store
+# Xcode
+DerivedData/
+*.xcworkspace/
+*.xcodeproj/project.xcworkspace/
+Apps/BearMinder/BearMinder.xcodeproj/
 
-# Project data
-/data/
-*.db
-
-# Tools
-.vscode/
-.idea/
-.mypy_cache/
-.pytest_cache/
-.coverage
-htmlcov/
+# Local credentials (DO NOT COMMIT)
+local/
