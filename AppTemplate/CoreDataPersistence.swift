@@ -18,66 +18,77 @@ final class CoreDataPersistence: PersistenceType {
         container.loadPersistentStores { _, error in
             if let error = error { LOG(.error, "Core Data load error: \(error)") }
         }
-        context = container.viewContext
+        // Use a background context since sync runs off the main thread
+        context = container.newBackgroundContext()
         context.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
     }
 
     // MARK: - PersistenceType
     func loadDailySnapshot(for date: String) throws -> DailySnapshot? {
-        let req = NSFetchRequest<NSManagedObject>(entityName: "DailySnapshot")
-        req.predicate = NSPredicate(format: "date == %@", date)
-        req.fetchLimit = 1
-        if let obj = try context.fetch(req).first {
-            return DailySnapshot(
-                date: date,
-                totalWords: obj.value(forKey: "totalWords") as? Int ?? 0,
-                notesModified: obj.value(forKey: "notesModified") as? Int ?? 0,
-                topTags: (obj.value(forKey: "topTags") as? String).flatMap { try? JSONDecoder().decode([String].self, from: Data($0.utf8)) } ?? [],
-                syncStatus: obj.value(forKey: "syncStatus") as? String ?? "pending",
-                lastUpdated: (obj.value(forKey: "lastUpdated") as? Date) ?? Date()
-            )
+        var result: DailySnapshot?
+        try context.performAndWait {
+            let req = NSFetchRequest<NSManagedObject>(entityName: "DailySnapshot")
+            req.predicate = NSPredicate(format: "date == %@", date)
+            req.fetchLimit = 1
+            if let obj = try context.fetch(req).first {
+                result = DailySnapshot(
+                    date: date,
+                    totalWords: obj.value(forKey: "totalWords") as? Int ?? 0,
+                    notesModified: obj.value(forKey: "notesModified") as? Int ?? 0,
+                    topTags: (obj.value(forKey: "topTags") as? String).flatMap { try? JSONDecoder().decode([String].self, from: Data($0.utf8)) } ?? [],
+                    syncStatus: obj.value(forKey: "syncStatus") as? String ?? "pending",
+                    lastUpdated: (obj.value(forKey: "lastUpdated") as? Date) ?? Date()
+                )
+            }
         }
-        return nil
+        return result
     }
 
     func saveDailySnapshot(_ snapshot: DailySnapshot) throws {
-        let req = NSFetchRequest<NSManagedObject>(entityName: "DailySnapshot")
-        req.predicate = NSPredicate(format: "date == %@", snapshot.date)
-        let obj = try context.fetch(req).first ?? NSEntityDescription.insertNewObject(forEntityName: "DailySnapshot", into: context)
-        obj.setValue(snapshot.date, forKey: "date")
-        obj.setValue(snapshot.totalWords, forKey: "totalWords")
-        obj.setValue(snapshot.notesModified, forKey: "notesModified")
-        let tagsJSON = String(data: (try? JSONEncoder().encode(snapshot.topTags)) ?? Data("[]".utf8), encoding: .utf8)
-        obj.setValue(tagsJSON, forKey: "topTags")
-        obj.setValue(snapshot.syncStatus, forKey: "syncStatus")
-        obj.setValue(snapshot.lastUpdated, forKey: "lastUpdated")
-        try contextSave()
+        try context.performAndWait {
+            let req = NSFetchRequest<NSManagedObject>(entityName: "DailySnapshot")
+            req.predicate = NSPredicate(format: "date == %@", snapshot.date)
+            let obj = try context.fetch(req).first ?? NSEntityDescription.insertNewObject(forEntityName: "DailySnapshot", into: context)
+            obj.setValue(snapshot.date, forKey: "date")
+            obj.setValue(snapshot.totalWords, forKey: "totalWords")
+            obj.setValue(snapshot.notesModified, forKey: "notesModified")
+            let tagsJSON = String(data: (try? JSONEncoder().encode(snapshot.topTags)) ?? Data("[]".utf8), encoding: .utf8)
+            obj.setValue(tagsJSON, forKey: "topTags")
+            obj.setValue(snapshot.syncStatus, forKey: "syncStatus")
+            obj.setValue(snapshot.lastUpdated, forKey: "lastUpdated")
+            try contextSave()
+        }
     }
 
     func loadNoteTracking(noteID: String, date: String) throws -> NoteTracking? {
-        let req = NSFetchRequest<NSManagedObject>(entityName: "NoteTracking")
-        req.predicate = NSPredicate(format: "noteID == %@ AND date == %@", noteID, date)
-        req.fetchLimit = 1
-        if let obj = try context.fetch(req).first {
-            return NoteTracking(
-                noteID: noteID,
-                date: date,
-                previousWordCount: obj.value(forKey: "previousWordCount") as? Int ?? 0,
-                currentWordCount: obj.value(forKey: "currentWordCount") as? Int ?? 0
-            )
+        var result: NoteTracking?
+        try context.performAndWait {
+            let req = NSFetchRequest<NSManagedObject>(entityName: "NoteTracking")
+            req.predicate = NSPredicate(format: "noteID == %@ AND date == %@", noteID, date)
+            req.fetchLimit = 1
+            if let obj = try context.fetch(req).first {
+                result = NoteTracking(
+                    noteID: noteID,
+                    date: date,
+                    previousWordCount: obj.value(forKey: "previousWordCount") as? Int ?? 0,
+                    currentWordCount: obj.value(forKey: "currentWordCount") as? Int ?? 0
+                )
+            }
         }
-        return nil
+        return result
     }
 
     func saveNoteTracking(_ note: NoteTracking) throws {
-        let req = NSFetchRequest<NSManagedObject>(entityName: "NoteTracking")
-        req.predicate = NSPredicate(format: "noteID == %@ AND date == %@", note.noteID, note.date)
-        let obj = try context.fetch(req).first ?? NSEntityDescription.insertNewObject(forEntityName: "NoteTracking", into: context)
-        obj.setValue(note.noteID, forKey: "noteID")
-        obj.setValue(note.date, forKey: "date")
-        obj.setValue(note.previousWordCount, forKey: "previousWordCount")
-        obj.setValue(note.currentWordCount, forKey: "currentWordCount")
-        try contextSave()
+        try context.performAndWait {
+            let req = NSFetchRequest<NSManagedObject>(entityName: "NoteTracking")
+            req.predicate = NSPredicate(format: "noteID == %@ AND date == %@", note.noteID, note.date)
+            let obj = try context.fetch(req).first ?? NSEntityDescription.insertNewObject(forEntityName: "NoteTracking", into: context)
+            obj.setValue(note.noteID, forKey: "noteID")
+            obj.setValue(note.date, forKey: "date")
+            obj.setValue(note.previousWordCount, forKey: "previousWordCount")
+            obj.setValue(note.currentWordCount, forKey: "currentWordCount")
+            try contextSave()
+        }
     }
 
     private func contextSave() throws {
