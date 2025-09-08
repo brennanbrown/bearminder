@@ -1,6 +1,6 @@
 # BearMinder — Bear → Beeminder word tracker (macOS menubar)
 
-BearMinder is a tiny macOS menubar app that totals the words you wrote in Bear today and posts them to your Beeminder goal. It stays out of the way, runs on-demand (hourly coming soon), and keeps your tokens securely in the Keychain.
+BearMinder is a tiny macOS menubar app that totals the words you wrote in Bear today and posts them to your Beeminder goal. It stays out of the way, runs on‑demand or hourly, and keeps your tokens securely in the Keychain.
 
 Why this exists: I used to rely on Draft (draftin.com) for daily writing with an auto‑sync to Beeminder. Since Draft shut down, there hasn’t been an enjoyable replacement. BearMinder fills that gap by letting me keep writing in Bear and still feed my Beeminder goal automatically.
 
@@ -34,12 +34,13 @@ Quick links:
 3) Run your first sync
 - Click 🐻 → Sync Now.
 - If you wrote today in Bear, BearMinder will post the number of new words written today to Beeminder.
-- Your datapoint’s comment shows a short summary (words, notes, tags) on two lines.
+- Your datapoint’s comment shows a concise one‑line summary (words, notes, tags).
 
 4) Daily use
 - Just write in Bear—nothing else to do.
-- Click 🐻 → Sync Now anytime. (Automatic hourly sync will be added soon.)
-- If you didn’t write since the last sync, BearMinder won’t post a zero.
+- Automatic hourly sync runs in the background (frequency is configurable in Settings: 30/60/120m).
+- The 🐻 shows a status dot (🟢 idle / 🟡 syncing / 🔴 error) and the menu shows “Last sync” (and can show “Next sync” if scheduled).
+- Click 🐻 → Sync Now anytime. If you didn’t write since the last sync, BearMinder won’t post a zero.
 
 Troubleshooting
 - No 🐻 in the menu bar: make sure the app launched. If needed, quit and relaunch.
@@ -49,9 +50,8 @@ Troubleshooting
 
 ## What gets posted to Beeminder
 - Value = today’s delta only (idempotent): words added today since yesterday’s final counts.
-- Comment = a short two‑line summary:
-  - "📝 {today_words}w | 📚 {notes_modified} notes | 🏷️ {unique_tags} tags"
-  - blank line + "🐻 via Bear → Beeminder"
+- Comment = a short one‑line summary:
+  - "📝 {today_words}w | 📚 {notes_modified} notes | 🏷️ {unique_tags} tags • 🐻 via Bear → Beeminder"
 
 Tip: We only post today’s delta. If there’s no new writing since the last sync, BearMinder won’t post a 0 (to avoid clobbering a positive datapoint).
 
@@ -121,14 +121,16 @@ open build/Build/Products/Debug/BearMinder.app
 - Menu bar icon/title: `AppTemplate/StatusItemController.swift` (emoji title fallback for reliability)
 - App entrypoint: explicit `@main` class in `AppTemplate/Main.swift` (avoids lifecycle ambiguity)
 - URL callbacks: `AppTemplate/AppDelegate+URLHandling.swift` registers for `kAEGetURL` and forwards to `BearCallbackCoordinator`.
-- Token storage: `Sources/KeychainSupport/KeychainSupport.swift` writes with `kSecAttrAccessibleAfterFirstUnlock` to reduce repeated prompts. If Keychain prompts recur, re‑save tokens in Settings and choose "Always Allow".
-- Beeminder POST: `Sources/BeeminderClient/BeeminderClient.swift` builds an `application/x-www-form-urlencoded` body using `URLComponents.percentEncodedQuery`, so newlines render properly.
+- Token storage: `Sources/KeychainSupport/KeychainSupport.swift` writes with `kSecAttrAccessibleAfterFirstUnlock` to reduce repeated prompts. A combined token item (`service="bearminder"`, `account="tokens"`) can be saved from Settings (“Combine Tokens”) so you authorize once.
+- Beeminder POST: `Sources/BeeminderClient/BeeminderClient.swift` builds an `application/x-www-form-urlencoded` body using `URLComponents.percentEncodedQuery`.
+- SyncManager: background hourly timer with `nextFireAt` and `lastSyncAt` for menu display; scheduled syncs reuse the same flow as manual syncs.
+- Offline queue: failed datapoints are queued on disk and sent on the next successful sync; discreet notifications indicate queueing and flushes.
 
 ## Roadmap (short)
-- Hourly background sync (`SyncManager`) and last‑sync status in menu.
-- Optional tag filter UI and logic.
-- Graceful error toasts and queueing for offline posts.
-- Remove launch alert and trim logs for production.
+- Backoff and retry strategy beyond the basic queue for rate limits/network.
+- Optional AppleScript fallback when Bear’s callback text is unavailable.
+- Sparkle auto‑updater and signed builds.
+- Code signing and hardened runtime.
 
 ## Contributing
 - Issues and PRs welcome. Please:
@@ -136,6 +138,12 @@ open build/Build/Products/Debug/BearMinder.app
   - Guard tokens—never log secrets.
   - Prefer UTC for dates and day boundaries.
   - Add concise logs around network calls and callbacks.
+
+## Troubleshooting
+- Too many Keychain prompts:
+  - In Settings, click “Combine Tokens” and then choose “Always Allow” when prompted. You can also open Keychain Access and allow BearMinder under Access Control for the item with Service "bearminder" and Account "tokens".
+- No datapoint posted:
+  - Ensure you wrote in Bear today (UTC) and notes were modified today. Check the app logs. If Beeminder is down, BearMinder will queue today’s datapoint and retry later.
 
 ## Support
 - If this project helps you, consider supporting:

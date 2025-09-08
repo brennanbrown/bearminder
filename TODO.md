@@ -11,21 +11,20 @@ Status legend: [ ] pending • [~] in progress • [x] done
 
 ## UI
 - [x] NSStatusItem with menu: Status, Sync Now, Settings, Open Beeminder, Quit (emoji title fallback)
-- [ ] Status indicator dot (green/yellow/red)
+- [x] Status indicator dot (green/yellow/red) and Last Sync line
 - [x] Settings window (AppKit):
   - [x] Bear API token (Keychain)
   - [x] Beeminder username + token (Keychain)
   - [x] Goal name
-  - [ ] Tag filters (optional)
-  - [ ] Sync frequency (hourly by default; presets 30m/2h; optional fixed 9am/9pm)
-  - [ ] Test credentials button
+  - [x] Tag filters (optional)
+  - [x] Sync frequency (hourly by default; presets 30m/2h; optional fixed 9am/9pm)
+  - [x] Test credentials button
 - [x] App template: `StatusItemController.swift` and `SettingsWindowController.swift`
 
-## Core
-- [~] SyncManager
-  - [ ] Hourly background timer + on-demand sync trigger
+- [x] SyncManager
+  - [x] Hourly background timer + on-demand sync trigger
   - [ ] Backoff + retry strategy
-  - [ ] Persist last successful sync timestamp
+  - [x] Persist last successful sync timestamp
 - [~] Persistence (Core Data)
   - [x] Model: `daily_snapshots`, `note_tracking`
   - [ ] DAO layer + migrations
@@ -43,8 +42,9 @@ Status legend: [ ] pending • [~] in progress • [x] done
   - [ ] Error handling for rate limits/network
 
 ## Error Handling & Notifications
-- [ ] Discreet user notifications on persistent auth/goal errors
-- [ ] Offline queue for datapoints when Beeminder unavailable
+- [x] Discreet user notifications on failed post and on queue flush
+- [x] Offline queue for datapoints when Beeminder unavailable (basic)
+- [ ] Failure streak threshold (notify only after 2–3 consecutive failures)
 - [x] Robust logging (local only, no sensitive data)
 
 ## Testing & Distribution
@@ -68,4 +68,8 @@ Status legend: [ ] pending • [~] in progress • [x] done
 - [x] `LocalConfigLoader.swift` created.
 - [x] `BearXCallbackClient.swift` and URL scheme registration.
 - [x] URL callback handling in `AppDelegate+URLHandling` + coordinator.
-- [ ] Replace in-memory persistence with full Core Data stack in app target.
+- [x] Replace in-memory persistence with full Core Data stack in app target (thread-safe background context).
+
+## Integrations & UX
+- [x] Combined Keychain tokens (single item) to minimize prompts; Settings has "Combine Tokens"
+- [ ] Optional AppleScript fallback for missing note text

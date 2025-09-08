@@ -20,20 +20,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Beeminder client with correct form encoding for multi-line comments.
 - Keychain writes use `kSecAttrAccessibleAfterFirstUnlock` to reduce repeated prompts.
 - Comprehensive README for users and developers.
+ - Hourly background sync and on-demand sync (`Sources/SyncManager/SyncManager.swift`) with status notifications.
+ - Last sync time in the menu and a status dot (green/yellow/red) in `StatusItemController`.
+ - Settings: tag filters, sync frequency presets (30/60/120m), Start at Login toggle.
+ - Settings: Test button to validate Beeminder credentials and Bear token presence.
+ - Combined Keychain tokens (single item `service="bearminder"`, `account="tokens"`) to minimize prompts; Settings includes “Combine Tokens.”
+ - Offline queue for Beeminder datapoints with discreet notifications; queued datapoints are flushed on next successful post.
 
 ### Changed
 - Post only today’s delta to Beeminder and include a concise two-line summary comment.
 - Improved logging around callbacks, per-note baseline/delta, and posting.
+ - Unified scheduled and manual sync via a shared performer so both paths behave identically.
+ - Beeminder comments standardized to a single line.
 
 ### Fixed
 - Xcode scheme/project regeneration and missing `_main` linker errors.
 - Menubar icon not appearing due to lifecycle ambiguity.
 - Newline encoding in Beeminder comments.
+ - Core Data thread-safety issues by using a background context and `performAndWait`.
 
 ### Planned
-- Hourly background sync (`SyncManager`) and last-sync status in the menu.
-- Tag filter UI and logic.
-- Error notifications and offline queue for datapoints.
+- Backoff and retry strategy for network/rate limit errors beyond the basic queue.
 - Code signing + hardened runtime; Sparkle auto-updater.
 
 ### Changed
