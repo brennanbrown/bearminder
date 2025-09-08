@@ -69,6 +69,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // URL callbacks from Bear x-callback-url
         registerURLHandler()
+
+        // Observe settings save to apply changes live
+        NotificationCenter.default.addObserver(forName: .settingsDidSave, object: nil, queue: .main) { [weak self] note in
+            guard let self = self else { return }
+            let minutes = (note.userInfo?["minutes"] as? Int) ?? 60
+            let tags = note.userInfo?["tags"] as? [String]
+            let startAtLogin = (note.userInfo?["startAtLogin"] as? Bool) ?? false
+            self.syncManager.updateFrequency(minutes: minutes)
+            self.syncManager.updateTags(tags)
+            StartAtLoginManager.apply(startAtLogin: startAtLogin)
+            LOG(.info, "Applied settings: minutes=\(minutes) tags=\(tags ?? []) startAtLogin=\(startAtLogin)")
+        }
     }
 
     private func showSettings() {

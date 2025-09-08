@@ -9,12 +9,22 @@ public final class SyncManager {
     private let beeminder: BeeminderClient
     private let bear: BearClient
     private let store: PersistenceType
-    private let settings: Settings
+    private var settings: Settings
     private var timer: Timer?
+    public private(set) var lastSyncAt: Date?
     private let queue = DispatchQueue(label: "SyncManager.Queue")
 
     public enum Status { case idle, syncing, error(String) }
+
+public extension Notification.Name {
+    static let syncStatusDidChange = Notification.Name("SyncStatusDidChange")
+    static let settingsDidSave = Notification.Name("SettingsDidSave")
+}
+
     public private(set) var status: Status = .idle
+    public func updateTags(_ tags: [String]?) {
+        settings.trackTags = tags
+    }
 
     public init(beeminder: BeeminderClient, bear: BearClient, store: PersistenceType, settings: Settings) {
         self.beeminder = beeminder
@@ -24,7 +34,9 @@ public final class SyncManager {
     }
 
     public func start() {
-        scheduleTimer(minutes: settings.syncFrequencyMinutes)
+        let minutes = UserDefaults.standard.integer(forKey: "sync.frequency.minutes")
+        let freq = minutes > 0 ? minutes : settings.syncFrequencyMinutes
+        scheduleTimer(minutes: freq > 0 ? freq : 60)
     }
 
     public func stop() {
@@ -39,9 +51,14 @@ public final class SyncManager {
         }
     }
 
+    public func updateFrequency(minutes: Int) {
+        scheduleTimer(minutes: minutes)
+    }
+
     @discardableResult
     public func syncNow() async -> Bool {
         status = .syncing
+        NotificationCenter.default.post(name: .syncStatusDidChange, object: self)
         do {
             // Fetch Bear data (stub for now)
             let notes = try await bear.fetchNotesModifiedToday(filteredByTags: settings.trackTags)
@@ -67,10 +84,13 @@ public final class SyncManager {
             let dp = BeeminderDatapoint(value: snapshot.totalWords, comment: comment, requestID: "bear-sync-\(today)", timestamp: Date().timeIntervalSince1970)
             _ = try await beeminder.postDatapoint(dp, perform: false)
             status = .idle
+            lastSyncAt = Date()
+            NotificationCenter.default.post(name: .syncStatusDidChange, object: self)
             return true
         } catch {
             LOG(.error, "Sync failed: \(error)")
             status = .error("\(error)")
+            NotificationCenter.default.post(name: .syncStatusDidChange, object: self)
             return false
         }
     }

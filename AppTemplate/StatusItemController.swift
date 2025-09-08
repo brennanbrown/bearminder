@@ -10,10 +10,15 @@ final class StatusItemController {
         case quit
     }
 
+    deinit {
+        if let obs = observer { NotificationCenter.default.removeObserver(obs) }
+    }
+
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private var menu: NSMenu = NSMenu(title: "Bear → Beeminder")
     private let syncManager: SyncManager
     private let handler: (Action) -> Void
+    private var observer: NSObjectProtocol?
 
     init(syncManager: SyncManager, handler: @escaping (Action) -> Void) {
         self.syncManager = syncManager
@@ -28,6 +33,10 @@ final class StatusItemController {
         }
         rebuildMenu()
         statusItem.menu = menu
+
+        observer = NotificationCenter.default.addObserver(forName: .syncStatusDidChange, object: nil, queue: .main) { [weak self] _ in
+            self?.rebuildMenu()
+        }
     }
 
     func rebuildMenu() {
@@ -43,6 +52,18 @@ final class StatusItemController {
         let statusItem = NSMenuItem(title: statusTitle, action: nil, keyEquivalent: "")
         statusItem.isEnabled = false
         menu.addItem(statusItem)
+
+        // Last sync line
+        if let dt = syncManager.lastSyncAt {
+            let df = DateFormatter()
+            df.dateStyle = .none
+            df.timeStyle = .short
+            df.doesRelativeDateFormatting = true
+            let last = df.string(from: dt)
+            let lastItem = NSMenuItem(title: "Last sync: \(last)", action: nil, keyEquivalent: "")
+            lastItem.isEnabled = false
+            menu.addItem(lastItem)
+        }
 
         menu.addItem(NSMenuItem.separator())
 

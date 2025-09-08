@@ -7,9 +7,11 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     private var syncPopup = NSPopUpButton()
     private var beeminderTokenField = NSSecureTextField(string: "")
     private var bearTokenField = NSSecureTextField(string: "")
+    private var tagsField = NSTextField(string: "")
+    private var startAtLoginCheckbox = NSButton(checkboxWithTitle: "Start at login", target: nil, action: nil)
 
     convenience init() {
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 420, height: 220),
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 460, height: 300),
                               styleMask: [.titled, .closable],
                               backing: .buffered,
                               defer: false)
@@ -35,7 +37,9 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             [label("Goal Name:"), goalField],
             [label("Beeminder API Token:"), beeminderTokenField],
             [label("Bear API Token:"), bearTokenField],
+            [label("Track only these tags (optional):"), tagsField],
             [label("Sync Frequency:"), syncPopup],
+            [startAtLoginCheckbox, NSView()],
             [NSView(), buttonsRow()]
         ])
         grid.translatesAutoresizingMaskIntoConstraints = false
@@ -49,6 +53,8 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         ])
 
         syncPopup.addItems(withTitles: ["Every 30 min", "Every hour", "Every 2 hours"]) // values: 30, 60, 120
+        startAtLoginCheckbox.target = self
+        startAtLoginCheckbox.action = #selector(onToggleStartAtLogin(_:))
     }
 
     private func label(_ text: String) -> NSTextField {
@@ -71,6 +77,8 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         let d = UserDefaults.standard
         usernameField.stringValue = d.string(forKey: "beeminder.username") ?? ""
         goalField.stringValue = d.string(forKey: "beeminder.goal") ?? ""
+        tagsField.stringValue = d.string(forKey: "track.tags") ?? ""
+        startAtLoginCheckbox.state = d.bool(forKey: "startAtLogin") ? .on : .off
         // Load Beeminder token
         let keychain = KeychainStore()
         if let bm = try? keychain.getPassword(account: "token", service: "beeminder"), !bm.isEmpty {
@@ -103,6 +111,10 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         default: minutes = 60
         }
         d.set(minutes, forKey: "sync.frequency.minutes")
+        let tagsRaw = tagsField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        d.set(tagsRaw, forKey: "track.tags")
+        let startAtLogin = (startAtLoginCheckbox.state == .on)
+        d.set(startAtLogin, forKey: "startAtLogin")
         d.synchronize()
 
         // Save Beeminder token to Keychain if provided
@@ -118,7 +130,18 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             let keychain = KeychainStore()
             try? keychain.setPassword(token, account: "token", service: "bear")
         }
+        // Notify app to apply settings immediately
+        let tags: [String]? = tagsRaw.isEmpty ? nil : tagsRaw.split{ $0 == "," || $0 == " " }.map{ String($0).trimmingCharacters(in: .whitespaces) }.filter{ !$0.isEmpty }
+        NotificationCenter.default.post(name: .settingsDidSave, object: nil, userInfo: [
+            "minutes": minutes,
+            "tags": tags as Any,
+            "startAtLogin": startAtLogin
+        ])
         window?.close()
+    }
+
+    @objc private func onToggleStartAtLogin(_ sender: NSButton) {
+        // no-op; value is read on save
     }
 
     @objc private func onTest() {
