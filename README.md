@@ -1,6 +1,19 @@
 # BearMinder — Bear → Beeminder word tracker (macOS menubar)
 
-BearMinder is a tiny macOS menubar app that totals the words you wrote in Bear today and posts them to your Beeminder goal. It stays out of the way, runs on-demand or hourly, and keeps your tokens securely in the Keychain.
+BearMinder is a tiny macOS menubar app that totals the words you wrote in Bear today and posts them to your Beeminder goal. It stays out of the way, runs on-demand (hourly coming soon), and keeps your tokens securely in the Keychain.
+
+Why this exists: I used to rely on Draft (draftin.com) for daily writing with an auto‑sync to Beeminder. Since Draft shut down, there hasn’t been an enjoyable replacement. BearMinder fills that gap by letting me keep writing in Bear and still feed my Beeminder goal automatically.
+
+References:
+- Archive of Draft: https://web.archive.org/web/20230102225504/http://draftin.com/
+- Beeminder discussion on Draft’s shutdown: https://forum.beeminder.com/t/the-state-of-draft/10366/5
+
+Quick links:
+- Docs: [`docs/spec-sheet.md`](docs/spec-sheet.md) • [`docs/AppSetup.md`](docs/AppSetup.md) • Build write‑up: [`docs/blog-building-bearminder.md`](docs/blog-building-bearminder.md)
+- Changelog: [`CHANGELOG.md`](CHANGELOG.md) • Roadmap/TODO: [`TODO.md`](TODO.md)
+- Issues / feature requests: https://github.com/brennanbrown/bearminder/issues
+- Sponsor / Support: GitHub Sponsors → https://github.com/sponsors/brennanbrown • Ko‑fi → https://ko-fi.com/brennan
+- Portfolio: https://brennanbrown.ca
 
 
 ## Quick Start (non‑technical users)
@@ -39,6 +52,8 @@ Troubleshooting
 - Comment = a short two‑line summary:
   - "📝 {today_words}w | 📚 {notes_modified} notes | 🏷️ {unique_tags} tags"
   - blank line + "🐻 via Bear → Beeminder"
+
+Tip: We only post today’s delta. If there’s no new writing since the last sync, BearMinder won’t post a 0 (to avoid clobbering a positive datapoint).
 
 
 ---
@@ -121,6 +136,13 @@ open build/Build/Products/Debug/BearMinder.app
   - Guard tokens—never log secrets.
   - Prefer UTC for dates and day boundaries.
   - Add concise logs around network calls and callbacks.
+
+## Support
+- If this project helps you, consider supporting:
+  - GitHub Sponsors: https://github.com/sponsors/brennanbrown
+  - Ko‑fi: https://ko-fi.com/brennan
+
+Have ideas or found a bug? Please open an issue: https://github.com/brennanbrown/bearminder/issues
 
 ## License
 - MIT.
