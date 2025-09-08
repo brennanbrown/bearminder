@@ -145,11 +145,27 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     }
 
     @objc private func onTest() {
-        let alert = NSAlert()
-        alert.messageText = "Test"
-        alert.informativeText = "This would validate your tokens and connectivity in the full app."
-        alert.alertStyle = .informational
-        alert.addButton(withTitle: "OK")
-        alert.beginSheetModal(for: self.window!) { _ in }
+        guard let window = self.window else { return }
+        let username = usernameField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        let goal = goalField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        let bmToken = beeminderTokenField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        let bearToken = bearTokenField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        Task { @MainActor in
+            // Validate Beeminder via a lightweight GET
+            let client = BeeminderClient(username: username, goal: goal, tokenProvider: { bmToken })
+            let bmOK = await client.validateCredentials()
+            let bearOK = !bearToken.isEmpty // basic presence check for now
+
+            let alert = NSAlert()
+            alert.messageText = "Credentials Test"
+            var details: [String] = []
+            details.append("Beeminder: \(bmOK ? "✅ OK" : "⚠️ Failed (check username/token)")")
+            details.append("Bear token present: \(bearOK ? "✅ Yes" : "⚠️ No")")
+            alert.informativeText = details.joined(separator: "\n")
+            alert.alertStyle = (bmOK && bearOK) ? .informational : .warning
+            alert.addButton(withTitle: "OK")
+            alert.beginSheetModal(for: window) { _ in }
+        }
     }
 }

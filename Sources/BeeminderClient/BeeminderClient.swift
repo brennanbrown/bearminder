@@ -52,5 +52,22 @@ public struct BeeminderClient {
         return (data, resp)
     }
 
-    // (no helpers)
+    // Lightweight credential probe (no writes)
+    public func validateCredentials() async -> Bool {
+        do {
+            let token = try tokenProvider()
+            guard !username.isEmpty, !token.isEmpty,
+                  let url = URL(string: "https://www.beeminder.com/api/v1/users/\(username).json?auth_token=\(token)") else {
+                return false
+            }
+            var req = URLRequest(url: url)
+            req.httpMethod = "GET"
+            let (_, resp) = try await session.data(for: req)
+            if let http = resp as? HTTPURLResponse { return (200...299).contains(http.statusCode) }
+            return false
+        } catch {
+            LOG(.warning, "Beeminder validate failed: \(error)")
+            return false
+        }
+    }
 }

@@ -1,4 +1,5 @@
 import AppKit
+import ServiceManagement
 import Models
 import BeeminderClient
 import BearClient
@@ -21,15 +22,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var syncManager: SyncManager!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // TEMP DEBUG: confirm launch path (modal)
         LOG(.info, "AppDelegate.applicationDidFinishLaunching")
-        NSApp.activate(ignoringOtherApps: true)
-        let alert = NSAlert()
-        alert.messageText = "BearMinder Launched"
-        alert.informativeText = "If you don't see a 🐻 in the menu bar, we'll adjust rendering next."
-        alert.alertStyle = .informational
-        alert.addButton(withTitle: "OK")
-        _ = alert.runModal()
 
         // Seed credentials from local/credentials.json (gitignored) on first launch if available
         LocalConfigLoader.seedIfNeeded()
@@ -47,6 +40,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         store = CoreDataPersistence(storeURL: CoreDataPersistence.defaultStoreURL())
         let settings = Settings(beeminderUsername: username, beeminderGoal: goal)
         syncManager = SyncManager(beeminder: beeminder, bear: bear, store: store, settings: settings)
+        // Make scheduled syncs use the same real flow as manual syncs
+        syncManager.performer = { [weak self] in
+            await self?.performRealSyncNow()
+            return true
+        }
 
         // UI controllers
         statusController = StatusItemController(syncManager: syncManager) { [weak self] action in
@@ -78,7 +76,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let startAtLogin = (note.userInfo?["startAtLogin"] as? Bool) ?? false
             self.syncManager.updateFrequency(minutes: minutes)
             self.syncManager.updateTags(tags)
-            StartAtLoginManager.apply(startAtLogin: startAtLogin)
+            self.applyStartAtLogin(startAtLogin)
             LOG(.info, "Applied settings: minutes=\(minutes) tags=\(tags ?? []) startAtLogin=\(startAtLogin)")
         }
     }
@@ -148,7 +146,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Build a richer summary line and include newlines (will be form-url-encoded)
         let uniqueTags = Set(notes.flatMap { $0.tags }).count
         let summary = "📝 \(totalDelta)w | 📚 \(snapshot.notesModified) notes | 🏷️ \(uniqueTags) tags"
-        let comment = summary + "\n\n🐻 via Bear → Beeminder"
+        let comment = summary + " • 🐻 via Bear → Beeminder"
         let dp = BeeminderDatapoint(value: totalDelta, comment: comment, requestID: "bear-sync-\(today)", timestamp: Date().timeIntervalSince1970)
         do {
             _ = try await beeminder.postDatapoint(dp, perform: true)
@@ -177,4 +175,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // Silence secure restorable state warning during development
     func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool { true }
+
+    // MARK: - Login Item
+    private func applyStartAtLogin(_ enabled: Bool) {
+        if #available(macOS 13.0, *) {
+            do {
+                if enabled { try SMAppService.mainApp.register() }
+                else { try SMAppService.mainApp.unregister() }
+            } catch {
+                LOG(.error, "Failed to update Start at Login: \(error)")
+            }
+        } else {
+            LOG(.warning, "Start at Login requires macOS 13+. Skipping.")
+        }
+    }
 }
