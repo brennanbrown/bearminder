@@ -16,11 +16,6 @@ public final class SyncManager {
 
     public enum Status { case idle, syncing, error(String) }
 
-public extension Notification.Name {
-    static let syncStatusDidChange = Notification.Name("SyncStatusDidChange")
-    static let settingsDidSave = Notification.Name("SettingsDidSave")
-}
-
     public private(set) var status: Status = .idle
     public func updateTags(_ tags: [String]?) {
         settings.trackTags = tags
