@@ -92,14 +92,50 @@ final class BearIntegrationManager {
             let modified = parseDate(params["modificationDate"]) ?? Date()
             let created = parseDate(params["creationDate"]) ?? seedCreated ?? modified
             // Bear may return body under "text" or "note" depending on action/version
-            let body = params["text"] ?? params["note"]
-            let wordCount = computeWordCount(from: body) ?? 0
+            var body = params["text"] ?? params["note"]
+            var wordCount = computeWordCount(from: body) ?? 0
+            // Optional AppleScript fallback if body is missing or empty
+            if (body == nil || body?.isEmpty == true) || wordCount == 0 {
+                if let fallback = fetchBodyViaAppleScript(noteID: id), !fallback.isEmpty {
+                    body = fallback
+                    wordCount = computeWordCount(from: body) ?? 0
+                    LOG(.info, "AppleScript fallback provided body for id=\(id.prefix(8)) (wc=\(wordCount))")
+                }
+            }
             LOG(.debug, "Computed wordCount=\(wordCount) for id=\(id) title=\(title)")
             return BearNoteMeta(id: id, title: title, wordCount: wordCount, lastModified: modified, creationDate: created, tags: tags)
         } catch {
             LOG(.warning, "Bear fetch-note for id=\(id) failed: \(error)")
             return nil
         }
+    }
+
+    /// Best-effort AppleScript fallback. Requires Bear's AppleScript support.
+    /// Returns plain text for the note if available.
+    private func fetchBodyViaAppleScript(noteID: String) -> String? {
+        let scriptSource = """
+        try
+            tell application \"Bear\"
+                set theText to ""
+                try
+                    set theText to text of note id \"%@\"
+                end try
+            end tell
+            return theText
+        on error
+            return ""
+        end try
+        """
+        let source = String(format: scriptSource, noteID)
+        if let script = NSAppleScript(source: source) {
+            var error: NSDictionary?
+            if let output = script.executeAndReturnError(&error).stringValue, !output.isEmpty {
+                return output
+            } else if let error = error {
+                LOG(.warning, "AppleScript fallback failed: \(error)")
+            }
+        }
+        return nil
     }
 
     private func waitForCallback(matcher: @escaping ([String: String]) -> Bool) async throws -> [String: String] {

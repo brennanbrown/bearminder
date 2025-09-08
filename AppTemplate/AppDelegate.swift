@@ -1,5 +1,6 @@
 import AppKit
 import ServiceManagement
+import UserNotifications
 import Models
 import BeeminderClient
 import BearClient
@@ -154,8 +155,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         do {
             _ = try await beeminder.postDatapoint(dp, perform: true)
             LOG(.info, "Posted datapoint value=\(totalDelta) to Beeminder goal=\(goal)")
+            // Flush any queued datapoints after a successful post
+            try await flushQueuedDatapoints()
+            // Reset failure streak on success
+            UserDefaults.standard.set(0, forKey: "post.failure.streak")
         } catch {
             LOG(.error, "Failed posting datapoint: \(error)")
+            // Enqueue for later retry and notify user discreetly
+            try? store.enqueueDatapoint(dp)
+            let streak = (UserDefaults.standard.integer(forKey: "post.failure.streak") + 1)
+            UserDefaults.standard.set(streak, forKey: "post.failure.streak")
+            if streak >= 2 { // notify only after 2+ consecutive failures
+                notify(title: "BearMinder", body: "Queued today's datapoint to retry later.")
+            }
         }
     }
 
@@ -191,5 +203,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             LOG(.warning, "Start at Login requires macOS 13+. Skipping.")
         }
+    }
+
+    // MARK: - Notifications & Offline Queue
+    private func notify(title: String, body: String) {
+        if #available(macOS 10.14, *) {
+            UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { granted, _ in
+                guard granted else { return }
+                let content = UNNotificationContent()
+                let mutable = UNMutableNotificationContent()
+                mutable.title = title
+                mutable.body = body
+                let req = UNNotificationRequest(identifier: UUID().uuidString, content: mutable, trigger: nil)
+                UNUserNotificationCenter.current().add(req, withCompletionHandler: nil)
+            }
+        }
+    }
+
+    private func flushQueuedDatapoints() async throws {
+        let queued = (try? store.dequeueAllDatapoints()) ?? []
+        guard !queued.isEmpty else { return }
+        var sent = 0
+        for q in queued {
+            do {
+                _ = try await beeminder.postDatapoint(q, perform: true)
+                sent += 1
+            } catch {
+                // Re-enqueue remaining and stop
+                try? store.enqueueDatapoint(q)
+                for r in queued.dropFirst(sent + 1) { try? store.enqueueDatapoint(r) }
+                break
+            }
+        }
+        if sent > 0 { notify(title: "BearMinder", body: "Sent \(sent) queued datapoint(s).") }
     }
 }

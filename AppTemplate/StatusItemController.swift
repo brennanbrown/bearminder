@@ -29,13 +29,15 @@ final class StatusItemController {
         if let button = statusItem.button {
             button.toolTip = "Bear → Beeminder Word Tracker"
             // Force title-only to guarantee visibility regardless of symbol availability
-            button.title = "🐻"
+            button.title = titleForStatus()
         }
         rebuildMenu()
         statusItem.menu = menu
 
         observer = NotificationCenter.default.addObserver(forName: .syncStatusDidChange, object: nil, queue: .main) { [weak self] _ in
-            self?.rebuildMenu()
+            guard let self = self else { return }
+            self.statusItem.button?.title = self.titleForStatus()
+            self.rebuildMenu()
         }
     }
 
@@ -65,6 +67,21 @@ final class StatusItemController {
             menu.addItem(lastItem)
         }
 
+        // Next sync line
+        if let next = syncManager.nextFireAt {
+            let seconds = Int(max(0, next.timeIntervalSinceNow))
+            let mins = seconds / 60
+            let nextTitle: String
+            if mins <= 0 {
+                nextTitle = "Next sync: soon"
+            } else {
+                nextTitle = "Next sync: in \(mins)m"
+            }
+            let nextItem = NSMenuItem(title: nextTitle, action: nil, keyEquivalent: "")
+            nextItem.isEnabled = false
+            menu.addItem(nextItem)
+        }
+
         menu.addItem(NSMenuItem.separator())
 
         // Actions
@@ -86,4 +103,14 @@ final class StatusItemController {
     @objc private func onOpenSettings() { handler(.openSettings) }
     @objc private func onOpenBeeminder() { handler(.openBeeminder) }
     @objc private func onQuit() { handler(.quit) }
+
+    private func titleForStatus() -> String {
+        let dot: String
+        switch syncManager.status {
+        case .idle: dot = "🟢"
+        case .syncing: dot = "🟡"
+        case .error: dot = "🔴"
+        }
+        return "🐻" + dot
+    }
 }

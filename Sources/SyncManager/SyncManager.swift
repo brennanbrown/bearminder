@@ -12,6 +12,9 @@ public final class SyncManager {
     private var settings: Settings
     private var timer: Timer?
     public private(set) var lastSyncAt: Date?
+    public var performer: (() async -> Bool)?
+    public private(set) var nextFireAt: Date?
+    public private(set) var currentIntervalMinutes: Int = 0
     private let queue = DispatchQueue(label: "SyncManager.Queue")
 
     public enum Status { case idle, syncing, error(String) }
@@ -31,7 +34,7 @@ public final class SyncManager {
     public func start() {
         let minutes = UserDefaults.standard.integer(forKey: "sync.frequency.minutes")
         let freq = minutes > 0 ? minutes : settings.syncFrequencyMinutes
-        scheduleTimer(minutes: freq > 0 ? freq : 60)
+        scheduleTimer(minutes: (freq > 0 ? freq : 60))
     }
 
     public func stop() {
@@ -41,8 +44,13 @@ public final class SyncManager {
 
     public func scheduleTimer(minutes: Int) {
         stop()
-        timer = Timer.scheduledTimer(withTimeInterval: TimeInterval(minutes * 60), repeats: true) { [weak self] _ in
-            Task { await self?.syncNow() }
+        currentIntervalMinutes = minutes
+        let interval = TimeInterval(minutes * 60)
+        nextFireAt = Date().addingTimeInterval(interval)
+        timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
+            guard let self = self else { return }
+            Task { await self.syncNow() }
+            self.nextFireAt = Date().addingTimeInterval(interval)
         }
     }
 
@@ -54,6 +62,16 @@ public final class SyncManager {
     public func syncNow() async -> Bool {
         status = .syncing
         NotificationCenter.default.post(name: .syncStatusDidChange, object: self)
+
+        // Prefer external performer when provided (real app flow)
+        if let performer = performer {
+            let ok = await performer()
+            status = ok ? .idle : .error("performer failed")
+            if ok { lastSyncAt = Date() }
+            NotificationCenter.default.post(name: .syncStatusDidChange, object: self)
+            return ok
+        }
+
         do {
             // Fetch Bear data (stub for now)
             let notes = try await bear.fetchNotesModifiedToday(filteredByTags: settings.trackTags)
