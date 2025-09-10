@@ -11,6 +11,7 @@ public final class SyncManager {
     private let store: PersistenceType
     private var settings: Settings
     private var timer: Timer?
+    private var dsTimer: DispatchSourceTimer?
     public private(set) var lastSyncAt: Date?
     public var performer: (() async -> Bool)?
     public private(set) var nextFireAt: Date?
@@ -40,6 +41,9 @@ public final class SyncManager {
     public func stop() {
         timer?.invalidate()
         timer = nil
+        dsTimer?.setEventHandler(handler: nil)
+        dsTimer?.cancel()
+        dsTimer = nil
     }
 
     public func scheduleTimer(minutes: Int) {
@@ -47,11 +51,16 @@ public final class SyncManager {
         currentIntervalMinutes = minutes
         let interval = TimeInterval(minutes * 60)
         nextFireAt = Date().addingTimeInterval(interval)
-        timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
+        // Use DispatchSourceTimer for robustness across run loop modes
+        let t = DispatchSource.makeTimerSource(queue: queue)
+        t.schedule(deadline: .now() + interval, repeating: interval, leeway: .seconds(30))
+        t.setEventHandler { [weak self] in
             guard let self = self else { return }
             Task { await self.syncNow() }
             self.nextFireAt = Date().addingTimeInterval(interval)
         }
+        dsTimer = t
+        t.resume()
     }
 
     public func updateFrequency(minutes: Int) {

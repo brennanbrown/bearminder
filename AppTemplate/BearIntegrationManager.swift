@@ -226,7 +226,10 @@ final class BearIntegrationManager {
             URLQueryItem(name: "x-success", value: success),
             URLQueryItem(name: "x-error", value: error)
         ]
-        if let url = comps.url { _ = try? xcb.openAndLog(url) }
+        if let url = comps.url {
+            LOG(.debug, "Open URL: \(url.absoluteString)")
+            _ = try? xcb.open(url: url)
+        }
         do {
             let params = try await waitForCallback { $0["op"] == "today" }
             if let rawNotes = params["notes"], !rawNotes.isEmpty,

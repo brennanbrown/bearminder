@@ -153,4 +153,4 @@ open build/Build/Products/Debug/BearMinder.app
 Have ideas or found a bug? Please open an issue: https://github.com/brennanbrown/bearminder/issues
 
 ## License
-- MIT.
+MIT

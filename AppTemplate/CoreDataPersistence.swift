@@ -7,6 +7,7 @@ import Persistence
 final class CoreDataPersistence: PersistenceType {
     private let container: NSPersistentContainer
     private let context: NSManagedObjectContext
+    private let queueURL: URL
 
     init(storeURL: URL? = nil) {
         let model = CoreDataPersistence.makeModel()
@@ -21,6 +22,13 @@ final class CoreDataPersistence: PersistenceType {
         // Use a background context since sync runs off the main thread
         context = container.newBackgroundContext()
         context.mergePolicy = NSMergeByPropertyObjectTrumpMergePolicy
+
+        // Offline queue JSON file
+        let base = CoreDataPersistence.defaultStoreURL().deletingLastPathComponent()
+        queueURL = base.appendingPathComponent("datapoint-queue.json")
+        if !FileManager.default.fileExists(atPath: queueURL.path) {
+            try? Data("[]".utf8).write(to: queueURL)
+        }
     }
 
     // MARK: - PersistenceType
@@ -152,4 +160,34 @@ extension CoreDataPersistence {
         }
         return (dir ?? URL(fileURLWithPath: NSTemporaryDirectory())).appendingPathComponent("bearminder.sqlite")
     }
+}
+
+// MARK: - Offline queue (file-backed JSON)
+extension CoreDataPersistence {
+    private func loadQueue() -> [BeeminderDatapoint] {
+        guard let data = try? Data(contentsOf: queueURL) else { return [] }
+        return (try? JSONDecoder().decode([BeeminderDatapoint].self, from: data)) ?? []
+    }
+
+    private func saveQueue(_ q: [BeeminderDatapoint]) {
+        if let data = try? JSONEncoder().encode(q) {
+            try? data.write(to: queueURL)
+        }
+    }
+
+    func enqueueDatapoint(_ dp: BeeminderDatapoint) throws {
+        var q = loadQueue()
+        q.append(dp)
+        // Optional bound to 50 items
+        if q.count > 50 { q.removeFirst(q.count - 50) }
+        saveQueue(q)
+    }
+
+    func dequeueAllDatapoints() throws -> [BeeminderDatapoint] {
+        let q = loadQueue()
+        saveQueue([])
+        return q
+    }
+
+    func countQueuedDatapoints() throws -> Int { loadQueue().count }
 }

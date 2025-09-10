@@ -1,5 +1,6 @@
 import AppKit
 import KeychainSupport
+import BeeminderClient
 
 final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     private var usernameField = NSTextField(string: "")
@@ -20,6 +21,26 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         self.window?.delegate = self
         setupUI()
         loadValues()
+    }
+
+    @objc private func onCombineTokens() {
+        guard let window = self.window else { return }
+        let keychain = KeychainStore()
+        let bm = (try? keychain.getPassword(account: "token", service: "beeminder")) ?? ""
+        let br = (try? keychain.getPassword(account: "token", service: "bear")) ?? ""
+        let alert = NSAlert()
+        if !bm.isEmpty && !br.isEmpty {
+            try? keychain.setCombinedTokens(beeminder: bm, bear: br)
+            alert.messageText = "Combined tokens saved"
+            alert.informativeText = "A single Keychain item (bearminder/tokens) was created. Choose 'Always Allow' once to reduce future prompts."
+            alert.alertStyle = .informational
+        } else {
+            alert.messageText = "Missing tokens"
+            alert.informativeText = "Could not find both individual tokens in Keychain. Save both tokens in Settings first, then combine."
+            alert.alertStyle = .warning
+        }
+        alert.addButton(withTitle: "OK")
+        alert.beginSheetModal(for: window) { _ in }
     }
 
     func show() {
@@ -68,8 +89,8 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         let test = NSButton(title: "Test", target: self, action: #selector(onTest))
         let combine = NSButton(title: "Combine Tokens", target: self, action: #selector(onCombineTokens))
         let stack = NSStackView(views: [save, test, combine])
-        stack.orientation = .horizontal
-        stack.alignment = .trailing
+        stack.orientation = NSUserInterfaceLayoutOrientation.horizontal
+        stack.alignment = NSLayoutConstraint.Attribute.trailing
         stack.spacing = 8
         return stack
     }

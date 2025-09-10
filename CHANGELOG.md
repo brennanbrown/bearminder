@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+## [0.1.0] - 2025-09-08
 ### Added
 - App menubar visibility fix and explicit AppKit entry point (`AppTemplate/Main.swift`).
 - Status item controller with reliable 🐻 emoji title fallback.
@@ -46,4 +48,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - CLI (`bearminder-cli`) now reads credentials from `ConfigLoader` (local file first, env vars as fallback) and performs a real POST when credentials are present.
 
-[Unreleased]: https://github.com/brennanbrown/bearminder/compare/HEAD...HEAD
+[Unreleased]: https://github.com/brennanbrown/bearminder/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/brennanbrown/bearminder/releases/tag/v0.1.0
