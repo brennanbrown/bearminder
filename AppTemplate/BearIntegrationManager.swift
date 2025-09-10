@@ -7,7 +7,7 @@ import Logging
 final class BearIntegrationManager {
     private let xcb = BearXCallbackClient()
 
-    /// Initiates a Bear search for notes modified today and then fetches metadata for each note.
+    /// Initiates a Bear search for notes modified/created today (local day) and then fetches metadata for each note.
     /// Expects Bear to return a comma-separated list of IDs via `bearminder://success?op=search&ids=...`.
     /// For each ID, we request a follow-up fetch that returns note details and, if available, text for word count.
     func fetchNotesModifiedToday(token: String) async -> [BearNoteMeta] {
@@ -15,7 +15,7 @@ final class BearIntegrationManager {
         let searchSuccess = "\(scheme)://success?op=search"
         let searchError = "\(scheme)://error?op=search"
 
-        // 1) Trigger a broad search; we will filter by modification date ourselves (see below)
+        // 1) Trigger a broad search; we will filter by local-day created/modified (see below)
         xcb.search(term: "", token: token, xsuccess: searchSuccess, xerror: searchError)
 
         do {
@@ -46,20 +46,60 @@ final class BearIntegrationManager {
                 }
             }
 
-            // Keep only notes modified "today" (UTC day boundary)
-            let today = Self.todayString()
+            // Keep only notes that were modified or created "today" (LOCAL day boundary).
+            // This better matches user expectations and mobile-to-Mac iCloud sync timing.
             let filteredSeeds = seedMetas.filter { meta in
-                if let d = meta.modified { return Self.isSameDayUTC(d, todayString: today) }
+                if let d = meta.modified, Self.isSameDayLocal(d) { return true }
+                if let c = meta.created, Self.isSameDayLocal(c) { return true }
                 return false
             }
             LOG(.info, "Bear search filtered to today's notes count=\(filteredSeeds.count)")
-            guard !filteredSeeds.isEmpty else { return [] }
+            var workingSeeds = filteredSeeds
+
+            // Fallback #1: if empty, try Bear's native /today action which returns its notion of "today"
+            if workingSeeds.isEmpty {
+                if let todaySeeds = await fetchTodaySeedsViaTodayAction(token: token) {
+                    workingSeeds = todaySeeds
+                    LOG(.info, "Bear /today provided today's notes count=\(workingSeeds.count)")
+                }
+            }
+
+            // Fallback #2: if still empty, wait briefly and retry search once (to allow iCloud sync)
+            if workingSeeds.isEmpty {
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
+                xcb.search(term: "", token: token, xsuccess: searchSuccess, xerror: searchError)
+                let retryParams = try? await waitForCallback { $0["op"] == "search" }
+                if let rawNotes = retryParams?["notes"], !rawNotes.isEmpty,
+                   let decoded = rawNotes.removingPercentEncoding,
+                   let data = decoded.data(using: .utf8),
+                   let array = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
+                    var seeds: [(id: String, title: String?, tags: [String], modified: Date?, created: Date?)] = []
+                    for n in array {
+                        let id = (n["identifier"] as? String) ?? ""
+                        guard !id.isEmpty else { continue }
+                        let title = n["title"] as? String
+                        let tagsRaw = n["tags"] as? String
+                        let tags = parseTags(tagsRaw)
+                        let modifiedISO = (n["modificationDate"] as? String)
+                        let modified = parseDate(modifiedISO)
+                        let createdISO = (n["creationDate"] as? String)
+                        let created = parseDate(createdISO)
+                        if (modified != nil && Self.isSameDayLocal(modified!)) || (created != nil && Self.isSameDayLocal(created!)) {
+                            seeds.append((id, title, tags, modified, created))
+                        }
+                    }
+                    workingSeeds = seeds
+                    LOG(.info, "Retry search filtered to today's notes count=\(workingSeeds.count)")
+                }
+            }
+
+            guard !workingSeeds.isEmpty else { return [] }
 
             var results: [BearNoteMeta] = []
             results.reserveCapacity(filteredSeeds.count)
 
             // 3) For each seed, request note fetch and await its callback; fallback to seed metadata if fetch fails
-            for seed in filteredSeeds {
+            for seed in workingSeeds {
                 if let meta = await fetchNoteMeta(id: seed.id, token: token, scheme: scheme, seedCreated: seed.created) {
                     results.append(meta)
                 } else {
@@ -171,19 +211,44 @@ final class BearIntegrationManager {
     }
 
     // MARK: - Date helpers (UTC day compare)
-    private static func todayString() -> String {
-        let df = DateFormatter()
-        df.calendar = Calendar(identifier: .gregorian)
-        df.timeZone = TimeZone(secondsFromGMT: 0)
-        df.dateFormat = "yyyy-MM-dd"
-        return df.string(from: Date())
+    private static func isSameDayLocal(_ date: Date) -> Bool {
+        let cal = Calendar.current
+        return cal.isDateInToday(date)
     }
 
-    private static func isSameDayUTC(_ date: Date, todayString: String) -> Bool {
-        let df = DateFormatter()
-        df.calendar = Calendar(identifier: .gregorian)
-        df.timeZone = TimeZone(secondsFromGMT: 0)
-        df.dateFormat = "yyyy-MM-dd"
-        return df.string(from: date) == todayString
+    private func fetchTodaySeedsViaTodayAction(token: String) async -> [(id: String, title: String?, tags: [String], modified: Date?, created: Date?)]? {
+        let scheme = "bearminder"
+        let success = "\(scheme)://success?op=today"
+        let error = "\(scheme)://error?op=today"
+        var comps = URLComponents(string: "bear://x-callback-url/today")!
+        comps.queryItems = [
+            URLQueryItem(name: "token", value: token),
+            URLQueryItem(name: "x-success", value: success),
+            URLQueryItem(name: "x-error", value: error)
+        ]
+        if let url = comps.url { _ = try? xcb.openAndLog(url) }
+        do {
+            let params = try await waitForCallback { $0["op"] == "today" }
+            if let rawNotes = params["notes"], !rawNotes.isEmpty,
+               let decoded = rawNotes.removingPercentEncoding,
+               let data = decoded.data(using: .utf8),
+               let array = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
+                var seeds: [(id: String, title: String?, tags: [String], modified: Date?, created: Date?)] = []
+                for n in array {
+                    let id = (n["identifier"] as? String) ?? ""
+                    guard !id.isEmpty else { continue }
+                    let title = n["title"] as? String
+                    let tagsRaw = n["tags"] as? String
+                    let tags = parseTags(tagsRaw)
+                    let modified = parseDate(n["modificationDate"] as? String)
+                    let created = parseDate(n["creationDate"] as? String)
+                    seeds.append((id, title, tags, modified, created))
+                }
+                return seeds
+            }
+        } catch {
+            LOG(.warning, "Bear /today callback failed: \(error)")
+        }
+        return nil
     }
 }
