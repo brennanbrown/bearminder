@@ -84,7 +84,7 @@ public final class SyncManager {
         do {
             // Fetch Bear data (stub for now)
             let notes = try await bear.fetchNotesModifiedToday(filteredByTags: settings.trackTags)
-            let today = Self.today()
+            let today = DateUtility.today()
             var totalWords = 0
             var modifiedCount = 0
 
@@ -115,13 +115,5 @@ public final class SyncManager {
             NotificationCenter.default.post(name: .syncStatusDidChange, object: self)
             return false
         }
-    }
-
-    private static func today() -> String {
-        let df = DateFormatter()
-        df.calendar = Calendar(identifier: .gregorian)
-        df.timeZone = TimeZone(secondsFromGMT: 0)
-        df.dateFormat = "yyyy-MM-dd"
-        return df.string(from: Date())
     }
 }

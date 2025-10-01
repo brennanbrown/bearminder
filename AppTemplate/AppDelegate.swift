@@ -130,8 +130,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         LOG(.info, "BearIntegration returned notes count=\(notes.count)")
 
         // 2) Update local snapshot and note tracking (delta calc)
-        let today = Self.today()
-        let yesterday = Self.yesterday()
+        let today = DateUtility.today()
+        let yesterday = DateUtility.yesterday()
         var totalDelta = 0
         var modified = 0
         for note in notes {
@@ -189,23 +189,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 notify(title: "BearMinder", body: "Queued today's datapoint to retry later.")
             }
         }
-    }
-
-    private static func today() -> String {
-        let df = DateFormatter()
-        df.calendar = Calendar(identifier: .gregorian)
-        df.timeZone = TimeZone(secondsFromGMT: 0)
-        df.dateFormat = "yyyy-MM-dd"
-        return df.string(from: Date())
-    }
-
-    private static func yesterday() -> String {
-        let df = DateFormatter()
-        df.calendar = Calendar(identifier: .gregorian)
-        df.timeZone = TimeZone(secondsFromGMT: 0)
-        df.dateFormat = "yyyy-MM-dd"
-        guard let y = Calendar(identifier: .gregorian).date(byAdding: .day, value: -1, to: Date()) else { return today() }
-        return df.string(from: y)
     }
 
     // Silence secure restorable state warning during development

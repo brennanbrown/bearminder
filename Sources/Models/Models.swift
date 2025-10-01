@@ -1,5 +1,25 @@
 import Foundation
 
+// MARK: - Date Utilities
+public enum DateUtility {
+    public static func today() -> String {
+        let df = DateFormatter()
+        df.calendar = Calendar(identifier: .gregorian)
+        df.timeZone = TimeZone(secondsFromGMT: 0)
+        df.dateFormat = "yyyy-MM-dd"
+        return df.string(from: Date())
+    }
+    
+    public static func yesterday() -> String {
+        let df = DateFormatter()
+        df.calendar = Calendar(identifier: .gregorian)
+        df.timeZone = TimeZone(secondsFromGMT: 0)
+        df.dateFormat = "yyyy-MM-dd"
+        guard let y = Calendar(identifier: .gregorian).date(byAdding: .day, value: -1, to: Date()) else { return today() }
+        return df.string(from: y)
+    }
+}
+
 public struct DailySnapshot: Codable, Equatable {
     public let date: String // YYYY-MM-DD
     public var totalWords: Int
