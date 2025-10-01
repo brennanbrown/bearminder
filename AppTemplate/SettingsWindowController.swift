@@ -10,9 +10,10 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     private var bearTokenField = NSSecureTextField(string: "")
     private var tagsField = NSTextField(string: "")
     private var startAtLoginCheckbox = NSButton(checkboxWithTitle: "Start at login", target: nil, action: nil)
+    private var appleScriptModeCheckbox = NSButton(checkboxWithTitle: "Use AppleScript mode (prevents Bear from popping up)", target: nil, action: nil)
 
     convenience init() {
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 460, height: 300),
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 500, height: 340),
                               styleMask: [.titled, .closable],
                               backing: .buffered,
                               defer: false)
@@ -61,6 +62,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             [label("Track only these tags (optional):"), tagsField],
             [label("Sync Frequency:"), syncPopup],
             [startAtLoginCheckbox, NSView()],
+            [appleScriptModeCheckbox, NSView()],
             [NSView(), buttonsRow()]
         ])
         grid.translatesAutoresizingMaskIntoConstraints = false
@@ -101,6 +103,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         goalField.stringValue = d.string(forKey: "beeminder.goal") ?? ""
         tagsField.stringValue = d.string(forKey: "track.tags") ?? ""
         startAtLoginCheckbox.state = d.bool(forKey: "startAtLogin") ? .on : .off
+        appleScriptModeCheckbox.state = d.bool(forKey: "bear.useAppleScript") ? .on : .off
         // Load Beeminder token
         let keychain = KeychainStore()
         if let bm = try? keychain.getPassword(account: "token", service: "beeminder"), !bm.isEmpty {
@@ -137,6 +140,8 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         d.set(tagsRaw, forKey: "track.tags")
         let startAtLogin = (startAtLoginCheckbox.state == .on)
         d.set(startAtLogin, forKey: "startAtLogin")
+        let useAppleScript = (appleScriptModeCheckbox.state == .on)
+        d.set(useAppleScript, forKey: "bear.useAppleScript")
         d.synchronize()
 
         // Save tokens to Keychain
