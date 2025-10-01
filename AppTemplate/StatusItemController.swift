@@ -119,12 +119,10 @@ final class StatusItemController {
     }
 
     private func titleForStatus() -> String {
-        let dot: String
         switch syncManager.status {
-        case .idle: dot = "🟢"
-        case .syncing: dot = "🟡"
-        case .error: dot = "🔴"
+        case .idle: return "🐻"
+        case .syncing: return "🐻"
+        case .error: return "🔴"
         }
-        return "🐻" + dot
     }
 }
