@@ -6,11 +6,23 @@ import Logging
 /// Coordinates Bear x-callback-url flows and bridges results back as Models.BearNoteMeta
 final class BearIntegrationManager {
     private let xcb = BearXCallbackClient()
+    
+    /// If true, uses AppleScript instead of x-callback-url (avoids bringing Bear to foreground)
+    var useAppleScriptMode: Bool {
+        UserDefaults.standard.bool(forKey: "bear.useAppleScript")
+    }
 
     /// Initiates a Bear search for notes modified/created today (local day) and then fetches metadata for each note.
     /// Expects Bear to return a comma-separated list of IDs via `bearminder://success?op=search&ids=...`.
     /// For each ID, we request a follow-up fetch that returns note details and, if available, text for word count.
+    /// If useAppleScriptMode is enabled, uses AppleScript instead to avoid bringing Bear to foreground.
     func fetchNotesModifiedToday(token: String) async -> [BearNoteMeta] {
+        // Use AppleScript mode if enabled (doesn't bring Bear to foreground)
+        if useAppleScriptMode {
+            return await fetchNotesViaAppleScript()
+        }
+        
+        // Otherwise use x-callback-url (may bring Bear to foreground)
         let scheme = "bearminder"
         let searchSuccess = "\(scheme)://success?op=search"
         let searchError = "\(scheme)://error?op=search"
@@ -181,12 +193,27 @@ final class BearIntegrationManager {
     private func waitForCallback(matcher: @escaping ([String: String]) -> Bool) async throws -> [String: String] {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<[String: String], Error>) in
             var token: NSObjectProtocol?
+            var timeoutTask: Task<Void, Never>?
+            var isResumed = false
+            
             token = NotificationCenter.default.addObserver(forName: .bearCallbackReceived, object: nil, queue: .main) { note in
                 guard let result = note.userInfo?["result"] as? BearCallbackCoordinator.Result else { return }
                 let params = result.params
                 guard matcher(params) else { return }
+                guard !isResumed else { return }
+                isResumed = true
                 if let t = token { NotificationCenter.default.removeObserver(t) }
+                timeoutTask?.cancel()
                 continuation.resume(returning: params)
+            }
+            
+            // Timeout after 30 seconds
+            timeoutTask = Task {
+                try? await Task.sleep(nanoseconds: 30_000_000_000)
+                guard !isResumed else { return }
+                isResumed = true
+                if let t = token { NotificationCenter.default.removeObserver(t) }
+                continuation.resume(throwing: NSError(domain: "BearIntegration", code: -1, userInfo: [NSLocalizedDescriptionKey: "Bear callback timeout"]))
             }
         }
     }
@@ -214,6 +241,113 @@ final class BearIntegrationManager {
     private static func isSameDayLocal(_ date: Date) -> Bool {
         let cal = Calendar.current
         return cal.isDateInToday(date)
+    }
+    
+    // MARK: - AppleScript Mode (doesn't bring Bear to foreground)
+    
+    /// Fetches today's notes via AppleScript - doesn't bring Bear to foreground
+    private func fetchNotesViaAppleScript() async -> [BearNoteMeta] {
+        return await Task.detached {
+            let scriptSource = """
+            tell application "Bear"
+                set notesList to notes
+                set todayNotes to {}
+                set currentDate to current date
+                set currentYear to year of currentDate
+                set currentMonth to month of currentDate as integer
+                set currentDay to day of currentDate
+                
+                repeat with aNote in notesList
+                    set modDate to modification date of aNote
+                    set modYear to year of modDate
+                    set modMonth to month of modDate as integer
+                    set modDay to day of modDate
+                    
+                    -- Check if modified today (local time)
+                    if modYear = currentYear and modMonth = currentMonth and modDay = currentDay then
+                        set noteId to id of aNote
+                        set noteTitle to title of aNote
+                        set noteText to text of aNote
+                        set noteTags to tags of aNote
+                        
+                        -- Build a simple record
+                        set noteRecord to {noteId:noteId, noteTitle:noteTitle, noteText:noteText, noteTags:noteTags, modDate:modDate}
+                        set end of todayNotes to noteRecord
+                    end if
+                end repeat
+                
+                return todayNotes
+            end tell
+            """
+            
+            guard let script = NSAppleScript(source: scriptSource) else {
+                LOG(.error, "Failed to create AppleScript")
+                return []
+            }
+            
+            var error: NSDictionary?
+            let result = script.executeAndReturnError(&error)
+            
+            if let error = error {
+                LOG(.error, "AppleScript execution failed: \(error)")
+                return []
+            }
+            
+            // Parse the AppleScript result
+            return self.parseAppleScriptResult(result)
+        }.value
+    }
+    
+    private func parseAppleScriptResult(_ result: NSAppleEventDescriptor) -> [BearNoteMeta] {
+        var notes: [BearNoteMeta] = []
+        
+        // result is a list of records
+        for i in 1...result.numberOfItems {
+            guard let record = result.atIndex(i) else { continue }
+            
+            // Extract fields from the record
+            guard let idDesc = record.forKeyword(AEKeyword(fourCharCode("noteId"))),
+                  let titleDesc = record.forKeyword(AEKeyword(fourCharCode("noteTitl"))),
+                  let textDesc = record.forKeyword(AEKeyword(fourCharCode("noteTxt"))),
+                  let modDesc = record.forKeyword(AEKeyword(fourCharCode("modDate"))),
+                  let id = idDesc.stringValue,
+                  let title = titleDesc.stringValue,
+                  let text = textDesc.stringValue else {
+                continue
+            }
+            
+            // Parse tags (may be missing)
+            var tags: [String] = []
+            if let tagsDesc = record.forKeyword(AEKeyword(fourCharCode("noteTags"))),
+               let tagsString = tagsDesc.stringValue {
+                tags = tagsString.split(separator: ",").map { String($0).trimmingCharacters(in: .whitespaces) }
+            }
+            
+            // Compute word count
+            let wordCount = computeWordCount(from: text) ?? 0
+            
+            // Parse modification date
+            let modDate: Date
+            if let dateNum = modDesc.dateValue {
+                modDate = dateNum
+            } else {
+                modDate = Date()
+            }
+            
+            let note = BearNoteMeta(id: id, title: title, wordCount: wordCount, lastModified: modDate, creationDate: modDate, tags: tags)
+            notes.append(note)
+        }
+        
+        LOG(.info, "AppleScript mode fetched \(notes.count) notes modified today")
+        return notes
+    }
+    
+    private func fourCharCode(_ string: String) -> FourCharCode {
+        var result: FourCharCode = 0
+        for char in string.utf8 {
+            result = (result << 8) + FourCharCode(char)
+        }
+        return result
     }
 
     private func fetchTodaySeedsViaTodayAction(token: String) async -> [(id: String, title: String?, tags: [String], modified: Date?, created: Date?)]? {
