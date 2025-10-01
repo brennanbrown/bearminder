@@ -59,7 +59,7 @@ Status legend: [ ] pending • [~] in progress • [x] done
 - [ ] Historical dashboard (Phase 2)
 
 ## Notes / Open Questions
-- Bear background access via x-callback-url may bring Bear to foreground; consider custom URL scheme callback or AppleScript fallback if needed.
+- [x] Bear background access via x-callback-url may bring Bear to foreground; consider custom URL scheme callback or AppleScript fallback if needed. **SOLVED:** AppleScript mode available in Settings.
 - Settings UI: AppKit vs SwiftUI hosted inside AppKit window.
 - Default schedule: hourly, allow presets and manual sync.
 
@@ -72,4 +72,4 @@ Status legend: [ ] pending • [~] in progress • [x] done
 
 ## Integrations & UX
 - [x] Combined Keychain tokens (single item) to minimize prompts; Settings has "Combine Tokens"
-- [ ] Optional AppleScript fallback for missing note text
+- [x] Optional AppleScript mode (doesn't bring Bear to foreground) - checkbox in Settings

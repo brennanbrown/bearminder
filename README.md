@@ -33,20 +33,19 @@ Quick links:
 
 3) Run your first sync
 - Click 🐻 → Sync Now.
-- If you wrote today in Bear, BearMinder will post the number of new words written today to Beeminder.
 - Your datapoint’s comment shows a concise one‑line summary (words, notes, tags).
 
 4) Daily use
 - Just write in Bear—nothing else to do.
 - Automatic hourly sync runs in the background (frequency is configurable in Settings: 30/60/120m).
-- The 🐻 shows a status dot (🟢 idle / 🟡 syncing / 🔴 error) and the menu shows “Last sync” (and can show “Next sync” if scheduled).
-- Click 🐻 → Sync Now anytime. If you didn’t write since the last sync, BearMinder won’t post a zero.
+- The menubar shows 🐻 when everything is working (idle or syncing) and 🔴 when there's an error. The menu shows "Last sync" and "Next sync" details.
+- Click 🐻 → Sync Now anytime. If you didn't write since the last sync, BearMinder won't post a zero.
 
 Troubleshooting
+- **Bear pops up during sync**: Enable "Use AppleScript mode" in Settings to prevent Bear from coming to the foreground during syncs. This uses AppleScript instead of x-callback-url.
 - No 🐻 in the menu bar: make sure the app launched. If needed, quit and relaunch.
 - It asks for Keychain permissions every launch: after saving tokens, macOS may prompt once; choose "Always Allow". If it still prompts, open Keychain Access, locate items with Service "beeminder" and "bear" (Account: "token"), and add BearMinder to their Access Control.
 - No words posted despite writing: click Sync Now and check the log in Xcode (or share it with a developer). BearMinder counts only words written today (UTC) across notes that were modified today.
-
 
 ## What gets posted to Beeminder
 - Value = today’s delta only (idempotent): words added today since yesterday’s final counts.
