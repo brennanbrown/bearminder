@@ -14,10 +14,17 @@ final class CoreDataPersistence: PersistenceType {
         container = NSPersistentContainer(name: "BearMinder", managedObjectModel: model)
         if let url = storeURL {
             let desc = NSPersistentStoreDescription(url: url)
+            // Enable lightweight migrations for automatic schema updates
+            desc.shouldMigrateStoreAutomatically = true
+            desc.shouldInferMappingModelAutomatically = true
             container.persistentStoreDescriptions = [desc]
         }
         container.loadPersistentStores { _, error in
-            if let error = error { LOG(.error, "Core Data load error: \(error)") }
+            if let error = error {
+                LOG(.error, "Core Data load error: \(error)")
+            } else {
+                LOG(.info, "Core Data store loaded successfully with lightweight migrations enabled")
+            }
         }
         // Use a background context since sync runs off the main thread
         context = container.newBackgroundContext()

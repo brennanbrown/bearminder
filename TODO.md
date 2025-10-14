@@ -6,7 +6,7 @@ Status legend: [ ] pending • [~] in progress • [x] done
 - [x] Confirm stack: Swift 5/AppKit, macOS 12+, Core Data, Keychain, URLSession
 - [x] Initialize Swift Package core modules (SPM targets for Models, Clients, Persistence, Sync, Keychain, Logging)
 - [x] Initialize Xcode macOS menu bar app project (AppKit lifecycle) via XcodeGen (`Apps/BearMinder/project.yml`)
-- [ ] Configure Login Item (SMAppService) for Start at Login
+- [x] Configure Login Item (SMAppService) for Start at Login
 - [x] Add gitignored local credentials storage (`local/credentials.json`) and `Config` loader
 
 ## UI
@@ -23,11 +23,11 @@ Status legend: [ ] pending • [~] in progress • [x] done
 
 - [x] SyncManager
   - [x] Hourly background timer + on-demand sync trigger
-  - [ ] Backoff + retry strategy
+  - [x] Backoff + retry strategy
   - [x] Persist last successful sync timestamp
-- [~] Persistence (Core Data)
+- [x] Persistence (Core Data)
   - [x] Model: `daily_snapshots`, `note_tracking`
-  - [ ] DAO layer + migrations
+  - [x] DAO layer + migrations (lightweight migrations enabled)
 - [x] Bear integration
   - [x] x-callback-url search + per-note fetch
   - [x] Filter to today (UTC) by `modificationDate`
@@ -39,12 +39,12 @@ Status legend: [ ] pending • [~] in progress • [x] done
 - [x] BeeminderClient
   - [x] POST datapoints with idempotent `requestid` (date-based)
   - [x] Proper form encoding so newlines render on Beeminder
-  - [ ] Error handling for rate limits/network
+  - [x] Error handling for rate limits/network
 
 ## Error Handling & Notifications
 - [x] Discreet user notifications on failed post and on queue flush
 - [x] Offline queue for datapoints when Beeminder unavailable (basic)
-- [ ] Failure streak threshold (notify only after 2–3 consecutive failures)
+- [x] Failure streak threshold (notify only after 2–3 consecutive failures)
 - [x] Robust logging (local only, no sensitive data)
 
 ## Testing & Distribution

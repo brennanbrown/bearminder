@@ -17,6 +17,11 @@ public final class SyncManager {
     public private(set) var nextFireAt: Date?
     public private(set) var currentIntervalMinutes: Int = 0
     private let queue = DispatchQueue(label: "SyncManager.Queue")
+    
+    // Retry/backoff state
+    private var consecutiveFailures: Int = 0
+    private let maxRetries: Int = 3
+    private let baseBackoffSeconds: TimeInterval = 5.0
 
     public enum Status { case idle, syncing, error(String) }
 
@@ -74,9 +79,16 @@ public final class SyncManager {
 
         // Prefer external performer when provided (real app flow)
         if let performer = performer {
-            let ok = await performer()
-            status = ok ? .idle : .error("performer failed")
-            if ok { lastSyncAt = Date() }
+            let ok = await performWithRetry {
+                await performer()
+            }
+            status = ok ? .idle : .error("performer failed after retries")
+            if ok {
+                lastSyncAt = Date()
+                consecutiveFailures = 0
+            } else {
+                consecutiveFailures += 1
+            }
             NotificationCenter.default.post(name: .syncStatusDidChange, object: self)
             return ok
         }
@@ -107,13 +119,32 @@ public final class SyncManager {
             _ = try await beeminder.postDatapoint(dp, perform: false)
             status = .idle
             lastSyncAt = Date()
+            consecutiveFailures = 0
             NotificationCenter.default.post(name: .syncStatusDidChange, object: self)
             return true
         } catch {
             LOG(.error, "Sync failed: \(error)")
+            consecutiveFailures += 1
             status = .error("\(error)")
             NotificationCenter.default.post(name: .syncStatusDidChange, object: self)
             return false
         }
+    }
+    
+    /// Performs async operation with exponential backoff retry
+    private func performWithRetry(_ operation: @escaping () async -> Bool) async -> Bool {
+        for attempt in 0..<maxRetries {
+            let success = await operation()
+            if success { return true }
+            
+            // Don't wait after last attempt
+            if attempt < maxRetries - 1 {
+                let backoff = baseBackoffSeconds * pow(2.0, Double(attempt))
+                LOG(.warning, "Sync attempt \(attempt + 1) failed, retrying in \(backoff)s")
+                try? await Task.sleep(nanoseconds: UInt64(backoff * 1_000_000_000))
+            }
+        }
+        LOG(.error, "Sync failed after \(maxRetries) attempts")
+        return false
     }
 }
