@@ -4,9 +4,13 @@ BearMinder is a tiny macOS menubar app that totals the words you wrote in Bear t
 
 Why this exists: I used to rely on Draft (draftin.com) for daily writing with an auto‑sync to Beeminder. Since Draft shut down, there hasn’t been an enjoyable replacement. BearMinder fills that gap by letting me keep writing in Bear and still feed my Beeminder goal automatically.
 
+**What about URLminder?** Beeminder's official [URLminder integration](https://help.beeminder.com/article/88-urlminder) is still active and works great if you write in Google Docs, Dropbox, or any publicly accessible URL. It automatically tracks your total word count from those documents. However, if you prefer writing in Bear (a native macOS notes app with excellent Markdown support), URLminder won't work since Bear notes aren't web-accessible. BearMinder bridges that gap, letting Bear users enjoy the same automatic word-count tracking that URLminder provides for cloud documents.
+
 References:
 - Archive of Draft: https://web.archive.org/web/20230102225504/http://draftin.com/
 - Beeminder discussion on Draft’s shutdown: https://forum.beeminder.com/t/the-state-of-draft/10366/5
+- URLminder help docs: https://help.beeminder.com/article/88-urlminder
+- URLminder announcement: https://blog.beeminder.com/urlminder/
 
 Quick links:
 - Docs: [`docs/spec-sheet.md`](docs/spec-sheet.md) • [`docs/AppSetup.md`](docs/AppSetup.md) • Build write‑up: [`docs/blog-building-bearminder.md`](docs/blog-building-bearminder.md)
@@ -122,14 +126,16 @@ open build/Build/Products/Debug/BearMinder.app
 - URL callbacks: `AppTemplate/AppDelegate+URLHandling.swift` registers for `kAEGetURL` and forwards to `BearCallbackCoordinator`.
 - Token storage: `Sources/KeychainSupport/KeychainSupport.swift` writes with `kSecAttrAccessibleAfterFirstUnlock` to reduce repeated prompts. A combined token item (`service="bearminder"`, `account="tokens"`) can be saved from Settings (“Combine Tokens”) so you authorize once.
 - Beeminder POST: `Sources/BeeminderClient/BeeminderClient.swift` builds an `application/x-www-form-urlencoded` body using `URLComponents.percentEncodedQuery`.
-- SyncManager: background hourly timer with `nextFireAt` and `lastSyncAt` for menu display; scheduled syncs reuse the same flow as manual syncs.
+- SyncManager: background hourly timer with `nextFireAt` and `lastSyncAt` for menu display; scheduled syncs reuse the same flow as manual syncs. Includes exponential backoff retry (3 attempts, 5s base delay) for transient failures.
 - Offline queue: failed datapoints are queued on disk and sent on the next successful sync; discreet notifications indicate queueing and flushes.
+- Error handling: BeeminderClient distinguishes retryable errors (rate limits, network issues, server errors) from permanent failures. Rate limit responses (429) respect Retry-After headers.
+- Persistence: Core Data with lightweight migrations enabled for automatic schema updates as the app evolves.
 
 ## Roadmap (short)
-- Backoff and retry strategy beyond the basic queue for rate limits/network.
-- Optional AppleScript fallback when Bear’s callback text is unavailable.
 - Sparkle auto‑updater and signed builds.
 - Code signing and hardened runtime.
+- Performance optimizations (target <10MB idle, <15MB during sync).
+- Tag-based filtering UI and logic.
 
 ## Contributing
 - Issues and PRs welcome. Please:
