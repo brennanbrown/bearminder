@@ -1,13 +1,20 @@
 # Build artifacts
 .build/
 build/
+build-release/
 .swiftpm/
+*.zip
+*.dmg
 
 # Xcode
 DerivedData/
 *.xcworkspace/
 *.xcodeproj/project.xcworkspace/
 Apps/BearMinder/BearMinder.xcodeproj/
+
+# macOS
+.DS_Store
+*.DS_Store
 
 # Local credentials (DO NOT COMMIT)
 local/
