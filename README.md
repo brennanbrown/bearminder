@@ -1,92 +1,149 @@
-# BearMinder — Bear → Beeminder word tracker (macOS menubar)
+<div align="center">
 
-BearMinder is a tiny macOS menubar app that totals the words you wrote in Bear today and posts them to your Beeminder goal. It stays out of the way, runs on‑demand or hourly, and keeps your tokens securely in the Keychain.
+# 🐻 BearMinder
 
-Why this exists: I used to rely on Draft (draftin.com) for daily writing with an auto‑sync to Beeminder. Since Draft shut down, there hasn’t been an enjoyable replacement. BearMinder fills that gap by letting me keep writing in Bear and still feed my Beeminder goal automatically.
+### Bear → Beeminder word tracker for macOS
 
-**What about URLminder?** Beeminder's official [URLminder integration](https://help.beeminder.com/article/88-urlminder) is still active and works great if you write in Google Docs, Dropbox, or any publicly accessible URL. It automatically tracks your total word count from those documents. However, if you prefer writing in Bear (a native macOS notes app with excellent Markdown support), URLminder won't work since Bear notes aren't web-accessible. BearMinder bridges that gap, letting Bear users enjoy the same automatic word-count tracking that URLminder provides for cloud documents.
+[![macOS](https://img.shields.io/badge/macOS-000000?style=flat&logo=apple&logoColor=white)](https://www.apple.com/macos/)
+[![Swift](https://img.shields.io/badge/Swift-F05138?style=flat&logo=swift&logoColor=white)](https://swift.org)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![GitHub issues](https://img.shields.io/github/issues/brennanbrown/bearminder)](https://github.com/brennanbrown/bearminder/issues)
+[![GitHub stars](https://img.shields.io/github/stars/brennanbrown/bearminder)](https://github.com/brennanbrown/bearminder/stargazers)
 
-References:
-- Archive of Draft: https://web.archive.org/web/20230102225504/http://draftin.com/
-- Beeminder discussion on Draft’s shutdown: https://forum.beeminder.com/t/the-state-of-draft/10366/5
-- URLminder help docs: https://help.beeminder.com/article/88-urlminder
-- URLminder announcement: https://blog.beeminder.com/urlminder/
+[Features](#-features) • [Quick Start](#-quick-start-non-technical-users) • [Developer Guide](#-developer-guide) • [Support](#-support)
 
-Quick links:
-- Docs: [`docs/spec-sheet.md`](docs/spec-sheet.md) • [`docs/AppSetup.md`](docs/AppSetup.md) • Build write‑up: [`docs/blog-building-bearminder.md`](docs/blog-building-bearminder.md)
-- Changelog: [`CHANGELOG.md`](CHANGELOG.md) • Roadmap/TODO: [`TODO.md`](TODO.md)
-- Issues / feature requests: https://github.com/brennanbrown/bearminder/issues
-- Sponsor / Support: GitHub Sponsors → https://github.com/sponsors/brennanbrown • Ko‑fi → https://ko-fi.com/brennan
-- Portfolio: https://brennanbrown.ca
+---
+
+</div>
+
+## 📖 About
+
+**BearMinder** is a tiny macOS menubar app that totals the words you wrote in Bear today and posts them to your Beeminder goal. It stays out of the way, runs on‑demand or hourly, and keeps your tokens securely in the Keychain.
+
+### 💡 Why This Exists
+
+I used to rely on [Draft](https://web.archive.org/web/20230102225504/http://draftin.com/) for daily writing with an auto‑sync to Beeminder. Since Draft shut down, there hasn't been an enjoyable replacement. BearMinder fills that gap by letting me keep writing in Bear and still feed my Beeminder goal automatically.
+
+### 🔗 What About URLminder?
+
+Beeminder's official [URLminder integration](https://help.beeminder.com/article/88-urlminder) is still active and works great if you write in Google Docs, Dropbox, or any publicly accessible URL. However, if you prefer writing in Bear (a native macOS notes app with excellent Markdown support), URLminder won't work since Bear notes aren't web-accessible. BearMinder bridges that gap, letting Bear users enjoy the same automatic word-count tracking that URLminder provides for cloud documents.
+
+### 📚 References
+
+- [Archive of Draft](https://web.archive.org/web/20230102225504/http://draftin.com/)
+- [Beeminder discussion on Draft's shutdown](https://forum.beeminder.com/t/the-state-of-draft/10366/5)
+- [URLminder help docs](https://help.beeminder.com/article/88-urlminder)
+- [URLminder announcement](https://blog.beeminder.com/urlminder/)
+
+### 🔗 Quick Links
+
+| Documentation | Project |
+|--------------|---------|
+| [Spec Sheet](docs/spec-sheet.md) | [Changelog](CHANGELOG.md) |
+| [App Setup](docs/AppSetup.md) | [Roadmap/TODO](TODO.md) |
+| [Build Write-up](docs/blog-building-bearminder.md) | [Issues](https://github.com/brennanbrown/bearminder/issues) |
+
+---
+
+## ✨ Features
+
+- 🐻 **Seamless Bear Integration** — Automatically tracks words from your Bear notes
+- 📊 **Beeminder Sync** — Posts daily word counts to your Beeminder goal
+- ⏰ **Automatic Hourly Sync** — Configurable intervals (30/60/120 minutes)
+- 🔒 **Secure Token Storage** — Uses macOS Keychain for API tokens
+- 🎯 **Smart Delta Tracking** — Only posts today's new words (idempotent)
+- 🚫 **Unobtrusive** — Tiny menubar app that stays out of your way
+- 📝 **Rich Comments** — Datapoints include word count, notes modified, and tags
 
 
-## Quick Start (non‑technical users)
+## 🚀 Quick Start (non‑technical users)
 
-1) Install and open the app
-- Build from source (ask a friend) or download a signed build when available.
-- Launch the app. A 🐻 icon appears in your macOS menu bar.
+### 1️⃣ Install and Open the App
 
-2) Open Settings
-- Click 🐻 → Settings.
-- Fill in:
-  - Beeminder Username
-  - Beeminder API Token (from https://www.beeminder.com/api/v1/auth_token.json)
-  - Beeminder Goal (for example: `writing`)
-  - Bear API Token (in Bear: Help → Advanced → API Token → Copy)
-- Save. On first access, macOS may ask you to allow Keychain access. Choose "Always Allow" so you aren’t asked again on each launch.
+- Build from source (ask a friend) or download a signed build when available
+- Launch the app — a 🐻 icon appears in your macOS menu bar
 
-3) Run your first sync
-- Click 🐻 → Sync Now.
-- Your datapoint’s comment shows a concise one‑line summary (words, notes, tags).
+### 2️⃣ Open Settings
 
-4) Daily use
-- Just write in Bear—nothing else to do.
-- Automatic hourly sync runs in the background (frequency is configurable in Settings: 30/60/120m).
-- The menubar shows 🐻 when everything is working (idle or syncing) and 🔴 when there's an error. The menu shows "Last sync" and "Next sync" details.
-- Click 🐻 → Sync Now anytime. If you didn't write since the last sync, BearMinder won't post a zero.
+Click 🐻 → Settings and fill in:
 
-Troubleshooting
-- **Bear pops up during sync**: Enable "Use AppleScript mode" in Settings to prevent Bear from coming to the foreground during syncs. This uses AppleScript instead of x-callback-url.
-- No 🐻 in the menu bar: make sure the app launched. If needed, quit and relaunch.
-- It asks for Keychain permissions every launch: after saving tokens, macOS may prompt once; choose "Always Allow". If it still prompts, open Keychain Access, locate items with Service "beeminder" and "bear" (Account: "token"), and add BearMinder to their Access Control.
-- No words posted despite writing: click Sync Now and check the log in Xcode (or share it with a developer). BearMinder counts only words written today (UTC) across notes that were modified today.
+- **Beeminder Username**
+- **Beeminder API Token** — Get it from [beeminder.com/api/v1/auth_token.json](https://www.beeminder.com/api/v1/auth_token.json)
+- **Beeminder Goal** — For example: `writing`
+- **Bear API Token** — In Bear: Help → Advanced → API Token → Copy
 
-## What gets posted to Beeminder
-- Value = today’s delta only (idempotent): words added today since yesterday’s final counts.
-- Comment = a short one‑line summary:
-  - "📝 {today_words}w | 📚 {notes_modified} notes | 🏷️ {unique_tags} tags • 🐻 via Bear → Beeminder"
+💾 **Save.** On first access, macOS may ask you to allow Keychain access. Choose **"Always Allow"** so you aren't asked again on each launch.
 
-Tip: We only post today’s delta. If there’s no new writing since the last sync, BearMinder won’t post a 0 (to avoid clobbering a positive datapoint).
+### 3️⃣ Run Your First Sync
+
+- Click 🐻 → **Sync Now**
+- Your datapoint's comment shows a concise one‑line summary (words, notes, tags)
+
+### 4️⃣ Daily Use
+
+- ✍️ **Just write in Bear** — nothing else to do!
+- ⏰ Automatic hourly sync runs in the background (frequency is configurable in Settings: 30/60/120m)
+- 🐻 The menubar shows 🐻 when everything is working and 🔴 when there's an error
+- 📊 The menu shows "Last sync" and "Next sync" details
+- 🔄 Click 🐻 → Sync Now anytime (BearMinder won't post a zero if you didn't write since the last sync)
+
+### 🔧 Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| **Bear pops up during sync** | Enable "Use AppleScript mode" in Settings to prevent Bear from coming to the foreground |
+| **No 🐻 in the menu bar** | Make sure the app launched. If needed, quit and relaunch |
+| **Keychain permissions every launch** | Choose "Always Allow" when prompted, or open Keychain Access and add BearMinder to Access Control for items with Service "beeminder" and "bear" |
+| **No words posted despite writing** | Click Sync Now and check the log. BearMinder counts only words written today (UTC) across notes modified today |
+
+---
+
+## 📊 What Gets Posted to Beeminder
+
+- **Value** — Today's delta only (idempotent): words added today since yesterday's final counts
+- **Comment** — A short one‑line summary:
+  ```
+  📝 {today_words}w | 📚 {notes_modified} notes | 🏷️ {unique_tags} tags • 🐻 via Bear → Beeminder
+  ```
+
+> 💡 **Tip:** We only post today's delta. If there's no new writing since the last sync, BearMinder won't post a 0 (to avoid clobbering a positive datapoint).
 
 
 ---
 
-# Developer Guide
+# 👨‍💻 Developer Guide
 
-## Project Structure
-- `Apps/BearMinder/` — XcodeGen app project (AppKit menubar app)
-- `AppTemplate/` — App layer (AppDelegate, StatusItemController, Settings window, Bear integration glue)
-- `Sources/` — Swift Package modules
-  - `Models/` — data models (snapshots, tracking, settings, datapoints, BearNoteMeta)
-  - `Logging/` — simple logging helper
-  - `KeychainSupport/` — Keychain read/write wrappers
-  - `BeeminderClient/` — Beeminder datapoint POST client
-  - `BearClient/` — placeholder client and types
-  - `Persistence/` — persistence protocol + Core Data impl (app target uses it)
-  - `SyncManager/` — polling/trigger logic (in progress)
-- `docs/` — spec and setup notes
+## 📁 Project Structure
 
-## Build & Run
-1) Generate the Xcode project for the app (XcodeGen):
 ```
+Apps/BearMinder/        # XcodeGen app project (AppKit menubar app)
+AppTemplate/            # App layer (AppDelegate, StatusItemController, Settings window)
+Sources/                # Swift Package modules
+  ├── Models/           # Data models (snapshots, tracking, settings, datapoints)
+  ├── Logging/          # Simple logging helper
+  ├── KeychainSupport/  # Keychain read/write wrappers
+  ├── BeeminderClient/  # Beeminder datapoint POST client
+  ├── BearClient/       # Bear client and types
+  ├── Persistence/      # Persistence protocol + Core Data implementation
+  └── SyncManager/      # Polling/trigger logic
+docs/                   # Spec and setup notes
+```
+
+## 🔨 Build & Run
+
+### Generate Xcode Project
+
+```bash
 cd Apps/BearMinder
 xcodegen generate
 open BearMinder.xcodeproj
 ```
-2) Select the `BearMinder` scheme → Destination `My Mac` → Build & Run.
 
-Command‑line build (no Xcode GUI):
-```
+Select the `BearMinder` scheme → Destination `My Mac` → Build & Run.
+
+### Command‑Line Build
+
+```bash
 # Build into ./build without code signing
 xcodebuild -project Apps/BearMinder/BearMinder.xcodeproj \
   -scheme BearMinder -configuration Debug \
@@ -96,9 +153,11 @@ xcodebuild -project Apps/BearMinder/BearMinder.xcodeproj \
 open build/Build/Products/Debug/BearMinder.app
 ```
 
-## Local credentials (optional for dev)
-- Create `local/credentials.json` (gitignored) using `local.sample/credentials.json`:
-```
+## 🔐 Local Credentials (Optional for Dev)
+
+Create `local/credentials.json` (gitignored) using `local.sample/credentials.json`:
+
+```json
 {
   "beeminderUsername": "yourname",
   "beeminderGoal": "writing",
@@ -106,56 +165,81 @@ open build/Build/Products/Debug/BearMinder.app
   "bearToken": "..."
 }
 ```
-- On launch, `AppTemplate/LocalConfigLoader.swift` seeds `UserDefaults` + Keychain if empty.
 
-## How today’s words are computed
-- `AppTemplate/BearIntegrationManager.swift`
-  - Triggers a Bear `search` x‑callback with an empty term (broad), Bear returns a JSON `notes` array.
-  - Filters to notes whose `modificationDate` is today (UTC).
-  - For each note, calls `open-note` to fetch metadata and body text.
-  - Counts words from the `text` or `note` callback param.
-- `AppTemplate/AppDelegate.performRealSyncNow()`
-  - Baseline = yesterday’s end‑of‑day count per note (UTC); if none, baseline = 0.
-  - Today’s delta = sum(max(0, current - baseline)) for all notes modified today.
-  - Stores `NoteTracking` for today with `previousWordCount = baseline`, `currentWordCount = current`.
-  - Posts only today’s delta to Beeminder, skipping if delta is 0.
+On launch, `AppTemplate/LocalConfigLoader.swift` seeds `UserDefaults` + Keychain if empty.
 
-## Key technical details
-- Menu bar icon/title: `AppTemplate/StatusItemController.swift` (emoji title fallback for reliability)
-- App entrypoint: explicit `@main` class in `AppTemplate/Main.swift` (avoids lifecycle ambiguity)
-- URL callbacks: `AppTemplate/AppDelegate+URLHandling.swift` registers for `kAEGetURL` and forwards to `BearCallbackCoordinator`.
-- Token storage: `Sources/KeychainSupport/KeychainSupport.swift` writes with `kSecAttrAccessibleAfterFirstUnlock` to reduce repeated prompts. A combined token item (`service="bearminder"`, `account="tokens"`) can be saved from Settings (“Combine Tokens”) so you authorize once.
-- Beeminder POST: `Sources/BeeminderClient/BeeminderClient.swift` builds an `application/x-www-form-urlencoded` body using `URLComponents.percentEncodedQuery`.
-- SyncManager: background hourly timer with `nextFireAt` and `lastSyncAt` for menu display; scheduled syncs reuse the same flow as manual syncs. Includes exponential backoff retry (3 attempts, 5s base delay) for transient failures.
-- Offline queue: failed datapoints are queued on disk and sent on the next successful sync; discreet notifications indicate queueing and flushes.
-- Error handling: BeeminderClient distinguishes retryable errors (rate limits, network issues, server errors) from permanent failures. Rate limit responses (429) respect Retry-After headers.
-- Persistence: Core Data with lightweight migrations enabled for automatic schema updates as the app evolves.
+## 🧮 How Today's Words Are Computed
 
-## Roadmap (short)
-- Sparkle auto‑updater and signed builds.
-- Code signing and hardened runtime.
-- Performance optimizations (target <10MB idle, <15MB during sync).
-- Tag-based filtering UI and logic.
+### BearIntegrationManager Flow
 
-## Contributing
-- Issues and PRs welcome. Please:
-  - Keep UI tiny and unobtrusive.
-  - Guard tokens—never log secrets.
-  - Prefer UTC for dates and day boundaries.
-  - Add concise logs around network calls and callbacks.
+1. Triggers a Bear `search` x‑callback with an empty term (broad search)
+2. Bear returns a JSON `notes` array
+3. Filters to notes whose `modificationDate` is today (UTC)
+4. For each note, calls `open-note` to fetch metadata and body text
+5. Counts words from the `text` or `note` callback param
 
-## Troubleshooting
-- Too many Keychain prompts:
-  - In Settings, click “Combine Tokens” and then choose “Always Allow” when prompted. You can also open Keychain Access and allow BearMinder under Access Control for the item with Service "bearminder" and Account "tokens".
-- No datapoint posted:
-  - Ensure you wrote in Bear today (UTC) and notes were modified today. Check the app logs. If Beeminder is down, BearMinder will queue today’s datapoint and retry later.
+### AppDelegate Sync Flow
 
-## Support
-- If this project helps you, consider supporting:
-  - GitHub Sponsors: https://github.com/sponsors/brennanbrown
-  - Ko‑fi: https://ko-fi.com/brennan
+1. **Baseline** = yesterday's end‑of‑day count per note (UTC); if none, baseline = 0
+2. **Today's delta** = sum(max(0, current - baseline)) for all notes modified today
+3. Stores `NoteTracking` for today with `previousWordCount = baseline`, `currentWordCount = current`
+4. Posts only today's delta to Beeminder, skipping if delta is 0
 
-Have ideas or found a bug? Please open an issue: https://github.com/brennanbrown/bearminder/issues
+## 🔧 Key Technical Details
 
-## License
-MIT
+| Component | Implementation |
+|-----------|----------------|
+| **Menu bar icon** | `AppTemplate/StatusItemController.swift` (emoji title fallback for reliability) |
+| **App entrypoint** | Explicit `@main` class in `AppTemplate/Main.swift` (avoids lifecycle ambiguity) |
+| **URL callbacks** | `AppTemplate/AppDelegate+URLHandling.swift` registers for `kAEGetURL` |
+| **Token storage** | `Sources/KeychainSupport/KeychainSupport.swift` with `kSecAttrAccessibleAfterFirstUnlock` |
+| **Beeminder POST** | `Sources/BeeminderClient/BeeminderClient.swift` using `application/x-www-form-urlencoded` |
+| **SyncManager** | Background hourly timer with exponential backoff retry (3 attempts, 5s base delay) |
+| **Offline queue** | Failed datapoints queued on disk and sent on next successful sync |
+| **Error handling** | Distinguishes retryable errors from permanent failures; respects Retry-After headers |
+| **Persistence** | Core Data with lightweight migrations for automatic schema updates |
+
+## 🗺️ Roadmap
+
+- [ ] Sparkle auto‑updater and signed builds
+- [ ] Code signing and hardened runtime
+- [ ] Performance optimizations (target <10MB idle, <15MB during sync)
+- [ ] Tag-based filtering UI and logic
+
+## 🤝 Contributing
+
+Issues and PRs welcome! Please:
+
+- ✅ Keep UI tiny and unobtrusive
+- 🔒 Guard tokens — never log secrets
+- 🌍 Prefer UTC for dates and day boundaries
+- 📝 Add concise logs around network calls and callbacks
+
+---
+
+## 💖 Support
+
+If this project helps you, consider supporting:
+
+<div align="center">
+
+[![GitHub Sponsors](https://img.shields.io/badge/Sponsor-GitHub-ea4aaa?style=for-the-badge&logo=github-sponsors)](https://github.com/sponsors/brennanbrown)
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-F16061?style=for-the-badge&logo=ko-fi&logoColor=white)](https://ko-fi.com/brennan)
+
+</div>
+
+Have ideas or found a bug? [Open an issue](https://github.com/brennanbrown/bearminder/issues) 🐛
+
+---
+
+## 📄 License
+
+**MIT** — See [LICENSE](LICENSE) for details
+
+---
+
+<div align="center">
+
+Made with ❤️ by [Brennan Brown](https://brennanbrown.ca)
+
+</div>
