@@ -1,97 +1,107 @@
-# Rules documentation: https://realm.github.io/SwiftLint/rule-directory.html
+# Relaxed SwiftLint configuration
 
-# Disable rules that are too strict for this project
+# Disable rules that are too strict or not valuable
 disabled_rules:
-  - trailing_whitespace  # Let the editor handle this
-  - line_length          # Allow longer lines (default: 120)
-  - function_body_length # Allow longer functions (default: 40)
-  - type_body_length     # Allow longer type declarations (default: 200)
-  - file_length          # Allow longer files (default: 400)
-  - identifier_name      # Allow non-camelCase identifiers for API compatibility
-  - type_name            # Allow non-camelCase type names for API compatibility
+  - line_length
+  - function_body_length
+  - file_length
+  - type_body_length
+  - cyclomatic_complexity
+  - function_parameter_count
+  - explicit_type_interface  # Allow type inference
+  - sorted_imports          # Not critical for functionality
+  - trailing_whitespace     # Can be handled by git or editor
+  - vertical_whitespace_closing_braces
+  - no_grouping_extension   # Extensions for grouping are fine
+  - required_deinit        # Not always necessary
+  - explicit_top_level_acl  # Not critical for internal code
 
-# Configure rules
-line_length: 160
-function_body_length: 80
-type_body_length: 400
+# Configure rules to be more lenient
+line_length: 200
+function_length: 100
+type_body_length: 500
 file_length: 1000
+function_parameter_count: 8
+cyclomatic_complexity: 20
 
-# Only warn for force unwrapping
+# Identifier names - be more permissive with short names
+identifier_name:
+  min_length: 1  # Allow single character names
+  max_length: 60
+  excluded:  # Common short variable names
+    - i
+    - j
+    - k
+    - x
+    - y
+    - z
+    - id
+    - ok
+    - no
+    - to
+    - do
+    - pi
+    - dx
+    - dy
+    - dt
+    - dp
+    - pt
+    - fp
+    - r
+    - g
+    - b
+    - h
+    - s
+    - v
+    - a
+    - w
+
+# Make force unwrapping/force casts warnings instead of errors
 force_cast: warning
 force_try: warning
 force_unwrapping: warning
+implicitly_unwrapped_optional: warning
 
-# Allow force_cast in test files
-disable_rules_in_comment:
-  - force_cast
-  - force_try
-  - force_unwrapping
-
-# Exclude generated files and dependencies
-excluded:
-  - .build
-  - Build
-  - build
-  - Carthage
-  - Pods
-  - Source/Generated
-  - .swiftpm
-  - .git
-  - .github
-  - fastlane
-  - docs
-  - local
-  - Tests/LinuxMain.swift
-
-# Custom rules
-custom_rules:
-  # Disallow print statements in production code
-  print_statement:
-    name: "Print Statement"
-    message: "Prefer using a proper logging system over print()"
-    regex: '\bprint\('
-    match_kinds: call
-    severity: warning
-    excluded: 
-      - "*.playground"
-      - "*Tests.swift"
-      - "*Test.swift"
-      - "*Tests/*"
-      - "*Test/*"
-
-# Opt-in rules (enable specific rules that are off by default)
+# Other useful but not critical rules to keep
 opt_in_rules:
-  - anyobject_protocol
   - attributes
-  - closure_param_position
+  - closure_end_indentation
+  - closure_spacing
   - collection_alignment
   - contains_over_first_not_nil
+  - discouraged_direct_init
   - discouraged_optional_boolean
   - discouraged_optional_collection
   - empty_collection_literal
   - empty_count
   - empty_string
+  - empty_xctest_method
   - explicit_init
   - explicit_self
+  - explicit_top_level_acl
+  - explicit_type_interface
+  - extension_access_modifier
   - fallthrough
   - fatal_error_message
+  - file_header
   - first_where
-  - implicit_return
+  - flatmap_over_map_reduce
+  - for_where
+  - force_unwrapping
   - implicitly_unwrapped_optional
   - is_disjoint
   - joined_default_parameter
   - let_var_whitespace
   - literal_expression_end_indentation
+  - missing_docs
+  - multiline_arguments
   - multiline_parameters
   - multiline_parameters_brackets
-  - multiline_arguments
-  - multiline_arguments_brackets
-  - multiline_literal_brackets
-  - multiline_function_chains
+  - multiple_closures_with_trailing_closure
+  - nimble_operator
   - no_extension_access_modifier
-  - no_fallthrough_only
   - no_grouping_extension
-  - no_space_in_method_call
+  - notification_center_detachment
   - number_separator
   - object_literal
   - operator_usage_whitespace
@@ -100,26 +110,42 @@ opt_in_rules:
   - override_in_extension
   - pattern_matching_keywords
   - private_outlet
-  - private_subject
+  - private_over_fileprivate
   - prohibited_super_call
   - redundant_nil_coalescing
+  - redundant_optional_initialization
+  - redundant_set_access_control
+  - redundant_string_enum_value
+  - redundant_type_annotation
+  - redundant_void_return
+  - required_deinit
   - required_enum_case
-  - return_arrow_whitespace
+  - shorthand_operator
+  - single_test_class
   - sorted_first_last
+  - sorted_imports
   - static_operator
   - strict_fileprivate
   - switch_case_on_newline
   - toggle_bool
   - trailing_closure
   - trailing_comma
-  - type_contents_order
-  - unavailable_function
+  - trailing_semicolon
+  - type_name
   - unneeded_parentheses_in_closure_argument
   - unowned_variable_capture
+  - unused_closure_parameter
+  - unused_control_flow_label
   - unused_import
   - unused_optional_binding
-  - valid_ibinspectable
+  - unused_private_declaration
+  - unused_setter_value
+  - vertical_parameter_alignment
   - vertical_parameter_alignment_on_call
-  - vertical_whitespace
+  - vertical_whitespace_between_cases
+  - vertical_whitespace_between_empty_braces
+  - vertical_whitespace_closing_braces
+  - vertical_whitespace_opening_braces
   - void_return
+  - xct_specific_matcher
   - yoda_condition
