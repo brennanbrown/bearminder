@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    name: Build and Test
+    runs-on: macos-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        
+    - name: Set up Swift
+      uses: swift-actions/setup-swift@v1
+      with:
+        swift-version: "5.9"
+        
+    - name: Cache Swift packages
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/Library/Developer/Xcode/DerivedData
+          ~/Library/Caches/org.swift.swiftpm
+          ~/Library/org.swift.swiftpm
+        key: ${{ runner.os }}-spm-${{ hashFiles('**/Package.resolved') }}
+        restore-keys: |
+          ${{ runner.os }}-spm-
+          
+    - name: Install SwiftLint
+      run: brew install swiftlint
+      
+    - name: Lint
+      run: swiftlint lint --strict
+      
+    - name: Build
+      run: swift build -v
+      
+    - name: Run tests
+      run: swift test -v --enable-test-discovery
+      env:
+        BEEMINDER_USERNAME: test-user
+        BEEMINDER_GOAL: test-goal
+        BEEMINDER_TOKEN: test-token
+        BEAR_TOKEN: test-token
+
+  release:
+    name: Create Release
+    needs: build-and-test
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: macos-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        
+    - name: Set up Swift
+      uses: swift-actions/setup-swift@v1
+      with:
+        swift-version: "5.9"
+        
+    - name: Get version from tag
+      id: get_version
+      run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
+      
+    - name: Build release
+      run: |
+        xcodebuild -scheme BearMinder -configuration Release -archivePath ./build/BearMinder.xcarchive archive
+        xcodebuild -exportArchive -archivePath ./build/BearMinder.xcarchive -exportOptionsPlist ./exportOptions.plist -exportPath ./build/export -allowProvisioningUpdates
+        
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        name: "${{ env.VERSION }}"
+        tag_name: ${{ env.VERSION }}
+        body_path: CHANGELOG.md
+        files: |
+          build/export/BearMinder.app.zip
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
