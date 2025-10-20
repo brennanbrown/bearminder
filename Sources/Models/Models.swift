@@ -69,10 +69,10 @@ public struct BeeminderDatapoint: Codable, Equatable {
 public struct Settings: Codable, Equatable {
     public var beeminderUsername: String
     public var beeminderGoal: String
-    public var trackTags: [String]? // nil => all notes
+    public var trackTags: [String] // Empty array means track all notes
     public var syncFrequencyMinutes: Int // default 60
 
-    public init(beeminderUsername: String, beeminderGoal: String, trackTags: [String]? = nil, syncFrequencyMinutes: Int = 60) {
+    public init(beeminderUsername: String, beeminderGoal: String, trackTags: [String] = [], syncFrequencyMinutes: Int = 60) {
         self.beeminderUsername = beeminderUsername
         self.beeminderGoal = beeminderGoal
         self.trackTags = trackTags

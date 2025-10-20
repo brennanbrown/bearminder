@@ -3,6 +3,23 @@ import AppKit
 import Models
 import Logging
 
+/// Represents the metadata for a note during the search process
+private struct NoteSearchMetadata {
+    let id: String
+    var title: String?
+    var tags: [String]
+    var modified: Date?
+    var created: Date?
+    
+    init(id: String, title: String? = nil, tags: [String] = [], modified: Date? = nil, created: Date? = nil) {
+        self.id = id
+        self.title = title
+        self.tags = tags
+        self.modified = modified
+        self.created = created
+    }
+}
+
 /// Coordinates Bear x-callback-url flows and bridges results back as Models.BearNoteMeta
 final class BearIntegrationManager {
     private let xcb = BearXCallbackClient()
@@ -35,10 +52,10 @@ final class BearIntegrationManager {
             let params = try await waitForCallback { $0["op"] == "search" }
 
             // Prefer `ids`, but support `notes` JSON (observed on your setup)
-            var seedMetas: [(id: String, title: String?, tags: [String], modified: Date?, created: Date?)] = []
+            var seedMetas: [NoteSearchMetadata] = []
             if let ids = params["ids"], !ids.isEmpty {
                 let idList = ids.split(separator: ",").map { String($0) }
-                seedMetas = idList.map { ($0, nil, [], nil, nil) }
+                seedMetas = idList.map { NoteSearchMetadata(id: $0) }
             } else if let rawNotes = params["notes"], !rawNotes.isEmpty {
                 if let decoded = rawNotes.removingPercentEncoding,
                    let data = decoded.data(using: .utf8),
@@ -46,14 +63,25 @@ final class BearIntegrationManager {
                     for n in array {
                         let id = (n["identifier"] as? String) ?? ""
                         guard !id.isEmpty else { continue }
-                        let title = n["title"] as? String
-                        let tagsRaw = n["tags"] as? String
-                        let tags = parseTags(tagsRaw)
-                        let modifiedISO = (n["modificationDate"] as? String)
-                        let modified = parseDate(modifiedISO)
-                        let createdISO = (n["creationDate"] as? String)
-                        let created = parseDate(createdISO)
-                        seedMetas.append((id, title, tags, modified, created))
+                        
+                        var meta = NoteSearchMetadata(
+                            id: id,
+                            title: n["title"] as? String
+                        )
+                        
+                        if let tagsRaw = n["tags"] as? String {
+                            meta.tags = parseTags(tagsRaw)
+                        }
+                        
+                        if let modifiedISO = n["modificationDate"] as? String {
+                            meta.modified = parseDate(modifiedISO)
+                        }
+                        
+                        if let createdISO = n["creationDate"] as? String {
+                            meta.created = parseDate(createdISO)
+                        }
+                        
+                        seedMetas.append(meta)
                     }
                 }
             }
@@ -70,8 +98,8 @@ final class BearIntegrationManager {
 
             // Fallback #1: if empty, try Bear's native /today action which returns its notion of "today"
             if workingSeeds.isEmpty {
-                if let todaySeeds = await fetchTodaySeedsViaTodayAction(token: token) {
-                    workingSeeds = todaySeeds
+                workingSeeds = await fetchTodaySeedsViaTodayAction(token: token) ?? []
+                if !workingSeeds.isEmpty {
                     LOG(.info, "Bear /today provided today's notes count=\(workingSeeds.count)")
                 }
             }
@@ -85,19 +113,31 @@ final class BearIntegrationManager {
                    let decoded = rawNotes.removingPercentEncoding,
                    let data = decoded.data(using: .utf8),
                    let array = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] {
-                    var seeds: [(id: String, title: String?, tags: [String], modified: Date?, created: Date?)] = []
+                    var seeds: [NoteSearchMetadata] = []
                     for n in array {
                         let id = (n["identifier"] as? String) ?? ""
                         guard !id.isEmpty else { continue }
-                        let title = n["title"] as? String
-                        let tagsRaw = n["tags"] as? String
-                        let tags = parseTags(tagsRaw)
-                        let modifiedISO = (n["modificationDate"] as? String)
-                        let modified = parseDate(modifiedISO)
-                        let createdISO = (n["creationDate"] as? String)
-                        let created = parseDate(createdISO)
-                        if (modified != nil && Self.isSameDayLocal(modified!)) || (created != nil && Self.isSameDayLocal(created!)) {
-                            seeds.append((id, title, tags, modified, created))
+                        
+                        var meta = NoteSearchMetadata(
+                            id: id,
+                            title: n["title"] as? String
+                        )
+                        
+                        if let tagsRaw = n["tags"] as? String {
+                            meta.tags = parseTags(tagsRaw)
+                        }
+                        
+                        if let modifiedISO = n["modificationDate"] as? String {
+                            meta.modified = parseDate(modifiedISO)
+                        }
+                        
+                        if let createdISO = n["creationDate"] as? String {
+                            meta.created = parseDate(createdISO)
+                        }
+                        
+                        if (meta.modified != nil && Self.isSameDayLocal(meta.modified!)) || 
+                           (meta.created != nil && Self.isSameDayLocal(meta.created!)) {
+                            seeds.append(meta)
                         }
                     }
                     workingSeeds = seeds
@@ -115,12 +155,17 @@ final class BearIntegrationManager {
                 if let meta = await fetchNoteMeta(id: seed.id, token: token, scheme: scheme, seedCreated: seed.created) {
                     results.append(meta)
                 } else {
-                    results.append(BearNoteMeta(id: seed.id,
-                                               title: seed.title ?? "",
-                                               wordCount: 0,
-                                               lastModified: seed.modified ?? Date(),
-                                               creationDate: seed.created ?? (seed.modified ?? Date()),
-                                               tags: seed.tags))
+                    let fallbackDate = seed.modified ?? Date()
+                    results.append(
+                        BearNoteMeta(
+                            id: seed.id,
+                            title: seed.title ?? "",
+                            wordCount: 0,
+                            lastModified: seed.modified ?? fallbackDate,
+                            creationDate: seed.created ?? fallbackDate,
+                            tags: seed.tags
+                        )
+                    )
                 }
             }
             return results
