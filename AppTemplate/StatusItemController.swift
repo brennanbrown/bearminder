@@ -48,9 +48,12 @@ final class StatusItemController {
         // Status
         let statusTitle: String
         switch syncManager.status {
-        case .idle: statusTitle = "Status: Idle ✅"
-        case .syncing: statusTitle = "Status: Syncing… ⏳"
-        case .error(let msg): statusTitle = "Status: Error ⚠️ - \(msg)"
+        case .idle: 
+            statusTitle = "Status: Idle ✅"
+        case .syncing: 
+            statusTitle = "Status: Syncing… ⏳"
+        case .error(let msg): 
+            statusTitle = "Status: Error ⚠️ - \(msg)"
         }
         let statusItem = NSMenuItem(title: statusTitle, action: nil, keyEquivalent: "")
         statusItem.isEnabled = false
@@ -106,12 +109,20 @@ final class StatusItemController {
         return item
     }
 
-    @objc private func onSyncNow() { handler(.syncNow) }
-    @objc private func onOpenSettings() { handler(.openSettings) }
-    @objc private func onOpenBeeminder() { handler(.openBeeminder) }
-    @objc private func onQuit() { handler(.quit) }
+    @objc 
+    private func onSyncNow() { handler(.syncNow) }
+    
+    @objc 
+    private func onOpenSettings() { handler(.openSettings) }
+    
+    @objc 
+    private func onOpenBeeminder() { handler(.openBeeminder) }
+    
+    @objc 
+    private func onQuit() { handler(.quit) }
 
-    @objc private func onToggleStartAtLogin() {
+    @objc 
+    private func onToggleStartAtLogin() {
         let current = UserDefaults.standard.bool(forKey: "startAtLogin")
         let next = !current
         UserDefaults.standard.set(next, forKey: "startAtLogin")
@@ -120,9 +131,12 @@ final class StatusItemController {
 
     private func titleForStatus() -> String {
         switch syncManager.status {
-        case .idle: return "🐻"
-        case .syncing: return "🐻"
-        case .error: return "🔴"
+        case .idle: 
+            return "🐻"
+        case .syncing: 
+            return "🐻"
+        case .error: 
+            return "🔴"
         }
     }
 }

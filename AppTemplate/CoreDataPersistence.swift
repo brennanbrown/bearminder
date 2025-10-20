@@ -155,8 +155,40 @@ final class CoreDataPersistence: PersistenceType {
         a.isIndexed = isIndexed
         return a
     }
+    
+        // MARK: - Queue Operations
+    
+    private func loadQueue() -> [BeeminderDatapoint] {
+        guard let data = try? Data(contentsOf: queueURL) else { return [] }
+        return (try? JSONDecoder().decode([BeeminderDatapoint].self, from: data)) ?? []
+    }
+    
+    private func saveQueue(_ q: [BeeminderDatapoint]) {
+        if let data = try? JSONEncoder().encode(q) {
+            try? data.write(to: queueURL)
+        }
+    }
+    
+    func enqueueDatapoint(_ dp: BeeminderDatapoint) throws {
+        var q = loadQueue()
+        q.append(dp)
+        // Optional bound to 50 items
+        if q.count > 50 { q.removeFirst(q.count - 50) }
+        saveQueue(q)
+    }
+    
+    func dequeueAllDatapoints() throws -> [BeeminderDatapoint] {
+        let q = loadQueue()
+        saveQueue([])
+        return q
+    }
+    
+    func countQueuedDatapoints() throws -> Int { 
+        loadQueue().count 
+    }
 }
 
+// MARK: - Default Store URL
 extension CoreDataPersistence {
     static func defaultStoreURL() -> URL {
         let fm = FileManager.default
@@ -167,34 +199,4 @@ extension CoreDataPersistence {
         }
         return (dir ?? URL(fileURLWithPath: NSTemporaryDirectory())).appendingPathComponent("bearminder.sqlite")
     }
-}
-
-// MARK: - Offline queue (file-backed JSON)
-extension CoreDataPersistence {
-    private func loadQueue() -> [BeeminderDatapoint] {
-        guard let data = try? Data(contentsOf: queueURL) else { return [] }
-        return (try? JSONDecoder().decode([BeeminderDatapoint].self, from: data)) ?? []
-    }
-
-    private func saveQueue(_ q: [BeeminderDatapoint]) {
-        if let data = try? JSONEncoder().encode(q) {
-            try? data.write(to: queueURL)
-        }
-    }
-
-    func enqueueDatapoint(_ dp: BeeminderDatapoint) throws {
-        var q = loadQueue()
-        q.append(dp)
-        // Optional bound to 50 items
-        if q.count > 50 { q.removeFirst(q.count - 50) }
-        saveQueue(q)
-    }
-
-    func dequeueAllDatapoints() throws -> [BeeminderDatapoint] {
-        let q = loadQueue()
-        saveQueue([])
-        return q
-    }
-
-    func countQueuedDatapoints() throws -> Int { loadQueue().count }
 }

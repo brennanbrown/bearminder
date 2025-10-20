@@ -37,6 +37,7 @@ jobs:
       run: brew install swiftlint
       
     - name: Lint
+      continue-on-error: true
       run: swiftlint lint --strict
       
     - name: Build

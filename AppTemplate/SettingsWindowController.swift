@@ -2,21 +2,36 @@ import AppKit
 import KeychainSupport
 import BeeminderClient
 
+/// Manages the settings window for Bear → Beeminder configuration
 final class SettingsWindowController: NSWindowController, NSWindowDelegate {
+    // MARK: - UI Elements
+    
     private var usernameField = NSTextField(string: "")
     private var goalField = NSTextField(string: "")
     private var syncPopup = NSPopUpButton()
     private var beeminderTokenField = NSSecureTextField(string: "")
     private var bearTokenField = NSSecureTextField(string: "")
     private var tagsField = NSTextField(string: "")
-    private var startAtLoginCheckbox = NSButton(checkboxWithTitle: "Start at login", target: nil, action: nil)
-    private var appleScriptModeCheckbox = NSButton(checkboxWithTitle: "Use AppleScript mode (prevents Bear from popping up)", target: nil, action: nil)
+    private var startAtLoginCheckbox = NSButton(
+        checkboxWithTitle: "Start at login",
+        target: nil,
+        action: nil
+    )
+    private var appleScriptModeCheckbox = NSButton(
+        checkboxWithTitle: "Use AppleScript mode (prevents Bear from popping up)",
+        target: nil,
+        action: nil
+    )
 
+    // MARK: - Initialization
+    
     convenience init() {
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 500, height: 340),
-                              styleMask: [.titled, .closable],
-                              backing: .buffered,
-                              defer: false)
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 500, height: 340),
+            styleMask: [.titled, .closable],
+            backing: .buffered,
+            defer: false
+        )
         window.title = "Bear → Beeminder Settings"
         self.init(window: window)
         self.window?.delegate = self
@@ -24,26 +39,41 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         loadValues()
     }
 
-    @objc private func onCombineTokens() {
+    // MARK: - Actions
+    
+    @objc
+    private func onCombineTokens() {
         guard let window = self.window else { return }
         let keychain = KeychainStore()
-        let bm = (try? keychain.getPassword(account: "token", service: "beeminder")) ?? ""
-        let br = (try? keychain.getPassword(account: "token", service: "bear")) ?? ""
+        let beeminderToken = (try? keychain.getPassword(account: "token", service: "beeminder")) ?? ""
+        let bearToken = (try? keychain.getPassword(account: "token", service: "bear")) ?? ""
+        
         let alert = NSAlert()
-        if !bm.isEmpty && !br.isEmpty {
-            try? keychain.setCombinedTokens(beeminder: bm, bear: br)
+        
+        if !beeminderToken.isEmpty && !bearToken.isEmpty {
+            try? keychain.setCombinedTokens(beeminder: beeminderToken, bear: bearToken)
             alert.messageText = "Combined tokens saved"
-            alert.informativeText = "A single Keychain item (bearminder/tokens) was created. Choose 'Always Allow' once to reduce future prompts."
+            alert.informativeText = """
+            A single Keychain item (bearminder/tokens) was created. 
+            Choose 'Always Allow' once to reduce future prompts.
+            """
             alert.alertStyle = .informational
         } else {
             alert.messageText = "Missing tokens"
-            alert.informativeText = "Could not find both individual tokens in Keychain. Save both tokens in Settings first, then combine."
+            alert.informativeText = """
+            Could not find both individual tokens in Keychain. 
+            Save both tokens in Settings first, then combine.
+            """
             alert.alertStyle = .warning
         }
+        
         alert.addButton(withTitle: "OK")
         alert.beginSheetModal(for: window) { _ in }
     }
-
+    
+    // MARK: - Window Management
+    
+    /// Displays the settings window
     func show() {
         guard let window = self.window else { return }
         window.center()
@@ -51,145 +81,297 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         NSApp.activate(ignoringOtherApps: true)
     }
 
+    // MARK: - UI Setup
+    
     private func setupUI() {
         guard let content = window?.contentView else { return }
-
-        let grid = NSGridView(views: [
-            [label("Beeminder Username:"), usernameField],
-            [label("Goal Name:"), goalField],
-            [label("Beeminder API Token:"), beeminderTokenField],
-            [label("Bear API Token:"), bearTokenField],
-            [label("Track only these tags (optional):"), tagsField],
-            [label("Sync Frequency:"), syncPopup],
-            [startAtLoginCheckbox, NSView()],
-            [appleScriptModeCheckbox, NSView()],
-            [NSView(), buttonsRow()]
-        ])
+        
+        // Configure text fields
+        configureTextFields()
+        
+        // Create grid layout
+        let grid = NSGridView(views: createGridRows())
         grid.translatesAutoresizingMaskIntoConstraints = false
         content.addSubview(grid)
-
+        
+        // Configure constraints
         NSLayoutConstraint.activate([
             grid.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 20),
             grid.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -20),
             grid.topAnchor.constraint(equalTo: content.topAnchor, constant: 20),
             grid.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -20)
         ])
-
-        syncPopup.addItems(withTitles: ["Every 30 min", "Every hour", "Every 2 hours"]) // values: 30, 60, 120
+        
+        // Configure popup menu
+        syncPopup.addItems(withTitles: ["Every 30 min", "Every hour", "Every 2 hours"])
+        
+        // Configure checkboxes
         startAtLoginCheckbox.target = self
         startAtLoginCheckbox.action = #selector(onToggleStartAtLogin(_:))
     }
-
-    private func label(_ text: String) -> NSTextField {
-        let l = NSTextField(labelWithString: text)
-        l.alignment = .right
-        return l
+    
+    private func configureTextFields() {
+        // Configure text field properties if needed
+        [usernameField, goalField, beeminderTokenField, bearTokenField, tagsField].forEach {
+            $0.translatesAutoresizingMaskIntoConstraints = false
+            $0.usesSingleLineMode = true
+        }
     }
-
-    private func buttonsRow() -> NSView {
-        let save = NSButton(title: "Save", target: self, action: #selector(onSave))
-        let test = NSButton(title: "Test", target: self, action: #selector(onTest))
-        let combine = NSButton(title: "Combine Tokens", target: self, action: #selector(onCombineTokens))
-        let stack = NSStackView(views: [save, test, combine])
-        stack.orientation = NSUserInterfaceLayoutOrientation.horizontal
-        stack.alignment = NSLayoutConstraint.Attribute.trailing
+    
+    private func createGridRows() -> [[NSView]] {
+        [
+            [createLabel("Beeminder Username:"), usernameField],
+            [createLabel("Goal Name:"), goalField],
+            [createLabel("Beeminder API Token:"), beeminderTokenField],
+            [createLabel("Bear API Token:"), bearTokenField],
+            [createLabel("Track only these tags (optional):"), tagsField],
+            [createLabel("Sync Frequency:"), syncPopup],
+            [startAtLoginCheckbox, NSView()],
+            [appleScriptModeCheckbox, NSView()],
+            [NSView(), createButtonsRow()]
+        ]
+    }
+    
+    private func createLabel(_ text: String) -> NSTextField {
+        let label = NSTextField(labelWithString: text)
+        label.alignment = .right
+        return label
+    }
+    
+    private func createButtonsRow() -> NSView {
+        let saveButton = NSButton(
+            title: "Save",
+            target: self,
+            action: #selector(onSave)
+        )
+        
+        let testButton = NSButton(
+            title: "Test",
+            target: self,
+            action: #selector(onTest)
+        )
+        
+        let combineButton = NSButton(
+            title: "Combine Tokens",
+            target: self,
+            action: #selector(onCombineTokens)
+        )
+        
+        let stack = NSStackView(views: [saveButton, testButton, combineButton])
+        stack.orientation = .horizontal
+        stack.alignment = .trailing
         stack.spacing = 8
+        
         return stack
     }
 
+    // MARK: - Data Management
+    
     private func loadValues() {
-        let d = UserDefaults.standard
-        usernameField.stringValue = d.string(forKey: "beeminder.username") ?? ""
-        goalField.stringValue = d.string(forKey: "beeminder.goal") ?? ""
-        tagsField.stringValue = d.string(forKey: "track.tags") ?? ""
-        startAtLoginCheckbox.state = d.bool(forKey: "startAtLogin") ? .on : .off
-        appleScriptModeCheckbox.state = d.bool(forKey: "bear.useAppleScript") ? .on : .off
-        // Load Beeminder token
+        let defaults = UserDefaults.standard
+        
+        // Load text fields
+        usernameField.stringValue = defaults.string(forKey: "beeminder.username") ?? ""
+        goalField.stringValue = defaults.string(forKey: "beeminder.goal") ?? ""
+        tagsField.stringValue = defaults.string(forKey: "track.tags") ?? ""
+        
+        // Load checkboxes
+        startAtLoginCheckbox.state = defaults.bool(forKey: "startAtLogin") ? .on : .off
+        appleScriptModeCheckbox.state = defaults.bool(forKey: "bear.useAppleScript") ? .on : .off
+        
+        // Load tokens from Keychain
+        loadTokensFromKeychain()
+        
+        // Configure sync frequency popup
+        configureSyncFrequencyPopup()
+    }
+    
+    private func loadTokensFromKeychain() {
         let keychain = KeychainStore()
-        if let bm = try? keychain.getPassword(account: "token", service: "beeminder"), !bm.isEmpty {
-            beeminderTokenField.stringValue = bm
+        
+        // Load Beeminder token
+        if let beeminderToken = try? keychain.getPassword(account: "token", service: "beeminder"),
+           !beeminderToken.isEmpty {
+            beeminderTokenField.stringValue = beeminderToken
         } else {
             beeminderTokenField.placeholderString = "Paste your Beeminder token"
         }
-        // Load Bear token from Keychain (masked field)
-        if let token = try? keychain.getPassword(account: "token", service: "bear"), !token.isEmpty {
-            bearTokenField.stringValue = token
+        
+        // Load Bear token
+        if let bearToken = try? keychain.getPassword(account: "token", service: "bear"),
+           !bearToken.isEmpty {
+            bearTokenField.stringValue = bearToken
         } else {
             bearTokenField.placeholderString = "Paste your Bear token"
         }
-        let freq = d.integer(forKey: "sync.frequency.minutes")
-        switch freq {
-        case 30: syncPopup.selectItem(at: 0)
-        case 120: syncPopup.selectItem(at: 2)
-        default: syncPopup.selectItem(at: 1)
+    }
+    
+    private func configureSyncFrequencyPopup() {
+        let frequency = UserDefaults.standard.integer(forKey: "sync.frequency.minutes")
+        switch frequency {
+        case 30: 
+            syncPopup.selectItem(at: 0)
+        case 120: 
+            syncPopup.selectItem(at: 2)
+        default: 
+            syncPopup.selectItem(at: 1)
         }
     }
-
-    @objc private func onSave() {
-        let d = UserDefaults.standard
-        d.set(usernameField.stringValue, forKey: "beeminder.username")
-        d.set(goalField.stringValue, forKey: "beeminder.goal")
-        let minutes: Int
-        switch syncPopup.indexOfSelectedItem {
-        case 0: minutes = 30
-        case 2: minutes = 120
-        default: minutes = 60
-        }
-        d.set(minutes, forKey: "sync.frequency.minutes")
-        let tagsRaw = tagsField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        d.set(tagsRaw, forKey: "track.tags")
-        let startAtLogin = (startAtLoginCheckbox.state == .on)
-        d.set(startAtLogin, forKey: "startAtLogin")
-        let useAppleScript = (appleScriptModeCheckbox.state == .on)
-        d.set(useAppleScript, forKey: "bear.useAppleScript")
-        d.synchronize()
-
-        // Save tokens to Keychain
-        let bm = beeminderTokenField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        let token = bearTokenField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        let keychain = KeychainStore()
-        if !bm.isEmpty { try? keychain.setPassword(bm, account: "token", service: "beeminder") }
-        if !token.isEmpty { try? keychain.setPassword(token, account: "token", service: "bear") }
-        // Also write combined tokens if both are present (reduces prompts)
-        if !bm.isEmpty, !token.isEmpty {
-            try? keychain.setCombinedTokens(beeminder: bm, bear: token)
-        }
-        // Notify app to apply settings immediately
-        let tags: [String]? = tagsRaw.isEmpty ? nil : tagsRaw.split{ $0 == "," || $0 == " " }.map{ String($0).trimmingCharacters(in: .whitespaces) }.filter{ !$0.isEmpty }
-        NotificationCenter.default.post(name: .settingsDidSave, object: nil, userInfo: [
-            "minutes": minutes,
-            "tags": tags as Any,
-            "startAtLogin": startAtLogin
-        ])
+    
+    // MARK: - Actions
+    
+    @objc
+    private func onSave() {
+        saveUserDefaults()
+        saveTokensToKeychain()
+        
+        // Notify that settings were updated
+        NotificationCenter.default.post(name: .settingsDidChange, object: nil)
+        
+        // Close the window after saving
         window?.close()
     }
-
-    @objc private func onToggleStartAtLogin(_ sender: NSButton) {
-        // no-op; value is read on save
+    
+    private func saveUserDefaults() {
+        let defaults = UserDefaults.standard
+        
+        // Save text fields
+        defaults.set(usernameField.stringValue, forKey: "beeminder.username")
+        defaults.set(goalField.stringValue, forKey: "beeminder.goal")
+        
+        // Save sync frequency
+        let minutes = getSelectedSyncFrequency()
+        defaults.set(minutes, forKey: "sync.frequency.minutes")
+        
+        // Save tags
+        let tagsRaw = tagsField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        defaults.set(tagsRaw, forKey: "track.tags")
+        
+        // Save checkboxes
+        defaults.set(
+            startAtLoginCheckbox.state == .on,
+            forKey: "startAtLogin"
+        )
+        defaults.set(
+            appleScriptModeCheckbox.state == .on,
+            forKey: "bear.useAppleScript"
+        )
+        
+        defaults.synchronize()
+    }
+    
+    private func getSelectedSyncFrequency() -> Int {
+        switch syncPopup.indexOfSelectedItem {
+        case 0: 
+            return 30
+        case 2: 
+            return 120
+        default: 
+            return 60
+        }
+    }
+    
+    private func saveTokensToKeychain() {
+        let keychain = KeychainStore()
+        let beeminderToken = beeminderTokenField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        let bearToken = bearTokenField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        // Save individual tokens
+        if !beeminderToken.isEmpty {
+            try? keychain.setPassword(beeminderToken, account: "token", service: "beeminder")
+        }
+        
+        if !bearToken.isEmpty {
+            try? keychain.setPassword(bearToken, account: "token", service: "bear")
+        }
+        
+        // Also write combined tokens if both are present (reduces prompts)
+        if !beeminderToken.isEmpty && !bearToken.isEmpty {
+            try? keychain.setCombinedTokens(beeminder: beeminderToken, bear: bearToken)
+        }
     }
 
-    @objc private func onTest() {
+    // MARK: - Checkbox Actions
+    
+    @objc
+    private func onToggleStartAtLogin(_ sender: NSButton) {
+        // No-op; value is read on save
+    }
+    
+    // MARK: - Test Connection
+    
+    @objc
+    private func onTest() {
         guard let window = self.window else { return }
+        
         let username = usernameField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         let goal = goalField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        let bmToken = beeminderTokenField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        let beeminderToken = beeminderTokenField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         let bearToken = bearTokenField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
 
         Task { @MainActor in
-            // Validate Beeminder via a lightweight GET
-            let client = BeeminderClient(username: username, goal: goal, tokenProvider: { bmToken })
-            let bmOK = await client.validateCredentials()
-            let bearOK = !bearToken.isEmpty // basic presence check for now
-
-            let alert = NSAlert()
-            alert.messageText = "Credentials Test"
-            var details: [String] = []
-            details.append("Beeminder: \(bmOK ? "✅ OK" : "⚠️ Failed (check username/token)")")
-            details.append("Bear token present: \(bearOK ? "✅ Yes" : "⚠️ No")")
-            alert.informativeText = details.joined(separator: "\n")
-            alert.alertStyle = (bmOK && bearOK) ? .informational : .warning
-            alert.addButton(withTitle: "OK")
-            alert.beginSheetModal(for: window) { _ in }
+            await testBeeminderConnection(
+                window: window,
+                username: username,
+                goal: goal,
+                beeminderToken: beeminderToken,
+                bearToken: bearToken
+            )
         }
+    }
+    
+    @MainActor
+    private func testBeeminderConnection(
+        window: NSWindow,
+        username: String,
+        goal: String,
+        beeminderToken: String,
+        bearToken: String
+    ) async {
+        let alert = NSAlert()
+        alert.messageText = "Credentials Test"
+        
+        // Validate Beeminder credentials
+        let beeminderValid = await validateBeeminderCredentials(
+            username: username,
+            goal: goal,
+            token: beeminderToken
+        )
+        
+        // Check Bear token presence
+        let bearTokenPresent = !bearToken.isEmpty
+        
+        // Prepare alert details
+        var details: [String] = []
+        details.append("Beeminder: \(beeminderValid ? "✅ OK" : "⚠️ Failed (check username/token)")")
+        details.append("Bear token present: \(bearTokenPresent ? "✅ Yes" : "⚠️ No")")
+        
+        alert.informativeText = details.joined(separator: "\n")
+        alert.alertStyle = (beeminderValid && bearTokenPresent) ? .informational : .warning
+        alert.addButton(withTitle: "OK")
+        
+        await withCheckedContinuation { continuation in
+            alert.beginSheetModal(for: window) { _ in
+                continuation.resume()
+            }
+        }
+    }
+    
+    private func validateBeeminderCredentials(
+        username: String,
+        goal: String,
+        token: String
+    ) async -> Bool {
+        guard !username.isEmpty, !goal.isEmpty, !token.isEmpty else {
+            return false
+        }
+        
+        let client = BeeminderClient(
+            username: username,
+            goal: goal,
+            tokenProvider: { [token] in token }
+        )
+        
+        return await client.validateCredentials()
     }
 }
