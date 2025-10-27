@@ -16,6 +16,8 @@
 
 </div>
 
+![BearMinder screenshot showing menubar status and settings](website/assets/images/screenshot.png)
+
 ## 📖 About
 
 **BearMinder** is a tiny macOS menubar app that totals the words you wrote in Bear today and posts them to your Beeminder goal. It stays out of the way, runs on‑demand or hourly, and keeps your tokens securely in the Keychain.
