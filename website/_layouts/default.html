@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ page.title | default: site.title }}</title>
+  <meta name="description" content="{{ site.description }}">
+  <link rel="icon" href="{{ site.baseurl }}/assets/favicon.svg" type="image/svg+xml">
+  <link rel="alternate icon" href="{{ site.baseurl }}/assets/favicon.svg">
+  <link rel="canonical" href="{{ site.url }}{{ site.baseurl }}{{ page.url }}">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="{{ site.title }}">
+  <meta property="og:title" content="{{ page.title | default: site.title }}">
+  <meta property="og:description" content="{{ site.description }}">
+  <meta property="og:url" content="{{ site.url }}{{ site.baseurl }}{{ page.url }}">
+  <meta property="og:image" content="{{ site.url }}{{ site.baseurl }}/assets/images/screenshot.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{{ page.title | default: site.title }}">
+  <meta name="twitter:description" content="{{ site.description }}">
+  <meta name="twitter:image" content="{{ site.url }}{{ site.baseurl }}/assets/images/screenshot.png">
+  <meta name="theme-color" content="#0b0c10">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/css/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container">
+      <div class="brand">🐻 BearMinder</div>
+      <nav class="nav">
+        <a href="https://github.com/brennanbrown/bearminder">GitHub</a>
+        <a href="#features">Features</a>
+        <a href="#setup">Setup</a>
+      </nav>
+    </div>
+  </header>
+  <main>
+    {{ content }}
+  </main>
+  <footer class="site-footer">
+    <div class="container small">
+      <p>© {{ "now" | date: "%Y" }} BearMinder by <a href="https://github.com/brennanbrown" rel="noopener">Brennan Brown</a>. <a href="https://github.com/brennanbrown/bearminder">Source on GitHub</a>. Licensed under <a href="https://github.com/brennanbrown/bearminder/blob/main/LICENSE" rel="license">MIT</a>.</p>
+      <p class="note">Bear and Beeminder are trademarks of their respective owners and are not affiliated with this project.</p>
+    </div>
+  </footer>
+</body>
+</html>

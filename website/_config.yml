@@ -1,0 +1,13 @@
+title: BearMinder
+description: Bear → Beeminder word-count tracker for macOS
+url: https://bearminder.netlify.app
+baseurl: ""
+markdown: kramdown
+theme: null
+plugins: []
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - node_modules
+  - README.md
+collections: []
